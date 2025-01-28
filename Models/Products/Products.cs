@@ -9,12 +9,12 @@ public class Product : BaseEntity
     public virtual string? SKU { get; set; } 
     public virtual int Stock { get; set; } 
     public virtual string? Brand { get; set; } 
-    public virtual Category Category { get; set; }
+    public virtual Category? Category { get; set; }
     public virtual string? Slug { get; set; } 
     public virtual bool IsActive { get; set; } = true;
     public virtual SEO? SEO { get; set; }
-    public virtual ProductImage PrimaryImage { get; set; }
-    public virtual List<ProductImage> Images { get; set; } 
+    public virtual ProductImage? PrimaryImage { get; set; }
+    public virtual List<ProductImage>? Images { get; set; } 
     public virtual Discount? Discount { get; set; }
     public virtual List<Review> Reviews { get; set; }
     public virtual List<FAQ> FAQs { get; set; }

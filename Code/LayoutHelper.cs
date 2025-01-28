@@ -171,7 +171,7 @@ public class LayoutHelper : ILayoutRepository
                 {
                     Id = category.Id,
                     Name = category.Name,
-                    ImageUrl = category.ThumbNailUrl
+                  //  ImageUrl = category.ThumbNailUrl
                 }).ToList(),
                 NewArrivals = (await _productHelper.GetRandomProducts()).Select(product => new SimpleProductDTO
                 {

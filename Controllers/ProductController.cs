@@ -1,6 +1,7 @@
 ﻿using EStore.Code;
 using EStore.Interfaces;
 using EStore.Models;
+using EStore.Models.Products;
 using EStore.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,7 +12,6 @@ namespace EStore.Controllers;
 public class ProductController : ControllerBase
 {
     private readonly IProductRepository _productRepository;
-   // private readonly CategoryHelper _categoryHelper;
 
     public ProductController(IProductRepository productRepository)
     {
@@ -47,26 +47,30 @@ public class ProductController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> AddOrUpdateProduct([FromBody] Product product, [FromQuery] string operation)
+    public async Task<IActionResult> AddOrUpdateProduct([FromForm] ProductAPI product, [FromQuery] string operation)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        Response response;
-        if(operation == Operation.Add.ToString().ToLower())
-        {
-            response = await _productRepository.SaveAsync(product);
-        }
-        else
-        {
-            response = await _productRepository.UpdateAsync(product);
-        }
+        var response = await _productRepository.SaveAsync(product);
         if (response.Success)
         {
-            return Ok(product);
+            return Ok();
         }
+        //if(operation == Operation.Add.ToString().ToLower())
+        //{
+        //    response = await _productRepository.SaveAsync(product);
+        //}
+        //else
+        //{
+        //    response = await _productRepository.UpdateAsync(product);
+        //}
+        //if (response.Success)
+        //{
+        //    return Ok(product);
+        //}
         return BadRequest(response.Error);
     }
 

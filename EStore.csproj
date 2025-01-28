@@ -7,7 +7,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Remove="wwwroot\index.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\.editorconfig" Link=".editorconfig" />
+    <None Include="wwwroot\images\products\ACP-A3P3.PNG" />
+    <None Include="wwwroot\images\products\ACP-Q2P1.PNG" />
+    <None Include="wwwroot\images\products\asfsdc.PNG" />
+    <None Include="wwwroot\index.html" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,6 +32,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\images\categories\" />
+    <Folder Include="wwwroot\images\homepage\" />
   </ItemGroup>
 
 </Project>

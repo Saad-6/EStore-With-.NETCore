@@ -1,4 +1,5 @@
 ﻿using EStore.DTOs;
+using EStore.Entities;
 using EStore.Interfaces;
 using EStore.Models.Order;
 using Microsoft.AspNetCore.Mvc;
@@ -24,7 +25,7 @@ public class OrderController : ControllerBase
 
         try
         {
-            var order = await _orderService.CreateOrderAsync(orderDto);
+            var order =  (OrderEntity)(await _orderService.CreateOrderAsync(orderDto)).Data;
             return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
         }
         catch (Exception ex)

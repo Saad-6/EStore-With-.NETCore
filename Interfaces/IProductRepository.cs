@@ -1,12 +1,14 @@
 ﻿using EStore.DTOs;
 using EStore.Entities;
 using EStore.Models;
+using EStore.Models.Products;
 
 namespace EStore.Interfaces;
 
 public interface IProductRepository
 {
     Task<Response> SaveAsync(Product product);
+    Task<Response> SaveAsync(ProductAPI product);
     Task<Response> DeleteAsync(int productId);
     Task<Response> UpdateAsync(Product product);
     Task<List<Product>> GetAllAsync();

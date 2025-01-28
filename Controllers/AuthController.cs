@@ -26,7 +26,7 @@ public class AuthController : ControllerBase
             return BadRequest(new 
             {
                 success = false,
-                message = "User registration failed"
+                message = result.Error
             });
         }
 

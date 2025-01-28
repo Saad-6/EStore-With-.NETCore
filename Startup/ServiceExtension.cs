@@ -37,7 +37,7 @@ public static class ServiceExtensions
         // Register AltDataContext with the configured options
         services.AddScoped<AltDataContext>(_ => new AltDataContext(options));
 
-        // Helpers
+        // Helpers (using ef core)
     //    services.AddScoped<ProductHelper>();
     //    services.AddScoped<CategoryHelper>();
     //    services.AddScoped<ReviewHelper>();
@@ -46,36 +46,27 @@ public static class ServiceExtensions
     ////   services.AddScoped<AuthHelper>();
     //    services.AddScoped<LayoutHelper>();
 
-        services.AddScoped(typeof(IRepository<>), typeof(EntityRepository<>));
-        
+        // Services or Helpers using linq2db
+
         services.AddScoped<Mapper>();
+        services.AddScoped<FileHandler>();
+        services.AddTransient<MigrationExtension>(); 
         services.AddScoped<ILogRepository,LogRepository>();
+        services.AddScoped<IAuthRepository,AuthRepository>();
         services.AddScoped<IOrderRepository,OrderRepository>();
         services.AddScoped<ILayoutRepository,LayoutRepository>();
         services.AddScoped<IProductRepository,ProductRepository>();
         services.AddScoped<ICategoryRepository,CategoryRepository>();
-        services.AddScoped<IAuthRepository,AuthRepository>();
-        services.AddTransient<MigrationExtension>();
+        services.AddScoped<IAppSettingsService, AppSettingsService>();
+        services.AddScoped(typeof(IRepository<>), typeof(EntityRepository<>));
 
-        //services.AddFluentMigratorCore()
-        //.ConfigureRunner(runner => runner
-        //    .AddSqlServer()  // Add the appropriate database provider
-        //    .WithGlobalConnectionString(configuration.GetConnectionString("DefaultConnection"))
-        //    .ScanIn(Assembly.GetExecutingAssembly()).For.Migrations())  // Scan for migrations in the current assembly
-        //.AddLogging(lb => lb.AddFluentMigratorConsole());
-
-        // services.AddFluentMigratorCore()
-        //.ConfigureRunner(runner => runner
-        //    .AddSqlServer()
-        //    .WithGlobalConnectionString(connectionString)
-        //    .ScanIn(AppDomain.CurrentDomain.GetAssemblies()).For.Migrations()); // Specify the assembly that contains your migrations
-
-        //services.AddFluentMigratorCore();
 
         // CORS
+
         services.AddCors();
 
         // JWT Authentication
+
         ConfigureJwtAuthentication(services, configuration);
     }
     private static void ConfigureJwtAuthentication(IServiceCollection services, IConfiguration configuration)

@@ -7,7 +7,7 @@ public interface IOrderRepository
 {
     Task<List<UserOrder>> GetAllAsync(Status status = Status.All);
     Task<UserOrder> GetOrderByIdAsync(string id);
-    Task<UserOrder> CreateOrderAsync(OrderCreateDto orderDto);
+    Task<Response> CreateOrderAsync(OrderCreateDto orderDto);
     Task UpdateOrder(UserOrder order);
     Task<bool> UpdateOrderStatus(string orderId, Status status);
 }

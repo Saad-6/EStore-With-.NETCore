@@ -3,6 +3,7 @@ using EStore.Entities;
 using EStore.Interfaces;
 using EStore.Models;
 using LinqToDB;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace EStore.Services;
 
@@ -10,17 +11,36 @@ public class CategoryRepository : ICategoryRepository
 {
     private readonly AltDataContext _dataContext;
     private readonly ILogRepository _logger;
-    public CategoryRepository(AltDataContext dataContext, ILogRepository logger)
+
+    private readonly FileHandler _fileHandler;
+    private const string DIRECTORY = "StaticFiles";
+    private const string SUB_DIRECTORY = "images/categories";
+    private readonly IAppSettingsService _appSettingsService;
+
+    public CategoryRepository(AltDataContext dataContext, ILogRepository logger,FileHandler fileHandler, IAppSettingsService appSettingsService)
     {
         _dataContext = dataContext;
         _logger = logger;
+        _fileHandler = fileHandler;
+        _appSettingsService = appSettingsService;
     }
 
-    public async Task<bool> AddCategory(CategoryEntity category)
+    public async Task<bool> AddCategory(Category category)
     {
         try
         {
-            await _dataContext.InsertAsync(category);
+            var file = await _fileHandler.SaveFileAsync(category?.thumbnail, DIRECTORY, SUB_DIRECTORY);
+
+            var fileName = (string)file.Data;
+
+            var newCategory = new CategoryEntity
+            {
+                ThumbNailUrl = fileName,
+                Description = category.Description,
+                Name = category.Name,
+            };
+
+            await _dataContext.InsertAsync(newCategory);
             return true;
         }
         catch(Exception ex)
@@ -49,7 +69,15 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task<List<CategoryEntity>> GetAllCategoriesAsync()
     {
-        return await _dataContext.Categories.ToListAsync();
+        return await _dataContext.Categories.Select(m=> new CategoryEntity
+        {
+            Id = m.Id,
+            Name = m.Name,
+            Description = m.Description,
+            ThumbNailUrl = m.ThumbNailUrl.Contains("http", StringComparison.OrdinalIgnoreCase) 
+            ? m.ThumbNailUrl 
+            :  $"{_appSettingsService.BaseUrl}/{m.ThumbNailUrl}",
+        }).ToListAsync();
     }
 
     public async Task<List<CategoryEntity>> GetCategoriesByName(string query)

@@ -291,4 +291,8 @@ public class ProductHelper : IProductRepository
 
     }
 
+    public Task<Response> SaveAsync(ProductAPI product)
+    {
+        throw new NotImplementedException();
+    }
 }

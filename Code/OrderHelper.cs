@@ -38,67 +38,78 @@ public class OrderHelper : IOrderRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task<UserOrder> CreateOrderAsync(OrderCreateDto orderDto)
+    public async Task<Response> CreateOrderAsync(OrderCreateDto orderDto)
     {
-        AppUser? user = null;
-        if (!string.IsNullOrEmpty(orderDto.UserId))
+        var response = new Response();
+        try
         {
-            user = await _userManager.FindByIdAsync(orderDto.UserId);
-        }
 
-        var cartItems = new List<CartItem>();
-
-        foreach (var ci in orderDto.CartItems)
-        {
-            var product = await _context.Products
-                .Include(p => p.Variants)
-                .ThenInclude(v => v.Options)
-                .FirstOrDefaultAsync(p => p.Id == ci.ProductId);
-
-            if (product == null)
+            AppUser? user = null;
+            if (!string.IsNullOrEmpty(orderDto.UserId))
             {
-                throw new ArgumentException($"Product with ID {ci.ProductId} not found.");
+                user = await _userManager.FindByIdAsync(orderDto.UserId);
             }
 
-            var selectedVariants = ci.SelectedVariants.Select(sv => new SelectedVariant
-            {
-                VariantName = sv.Key,
-                OptionValue = sv.Value.Value,
-                PriceAdjustment = sv.Value.PriceAdjustment
-            }).ToList();
+            var cartItems = new List<CartItem>();
 
-            var subTotal = ci.Quantity * (product.Price + selectedVariants.Sum(sv => sv.PriceAdjustment));
-
-            var cartItem = new CartItem
+            foreach (var ci in orderDto.CartItems)
             {
-                Product = product,
-                Quantity = ci.Quantity,
-                SubTotal = subTotal,
-                SelectedVariants = selectedVariants
+                var product = await _context.Products
+                    .Include(p => p.Variants)
+                    .ThenInclude(v => v.Options)
+                    .FirstOrDefaultAsync(p => p.Id == ci.ProductId);
+
+                if (product == null)
+                {
+                    throw new ArgumentException($"Product with ID {ci.ProductId} not found.");
+                }
+
+                var selectedVariants = ci.SelectedVariants.Select(sv => new SelectedVariant
+                {
+                    VariantName = sv.Key,
+                    OptionValue = sv.Value.Value,
+                    PriceAdjustment = sv.Value.PriceAdjustment
+                }).ToList();
+
+                var subTotal = ci.Quantity * (product.Price + selectedVariants.Sum(sv => sv.PriceAdjustment));
+
+                var cartItem = new CartItem
+                {
+                    Product = product,
+                    Quantity = ci.Quantity,
+                    SubTotal = subTotal,
+                    SelectedVariants = selectedVariants
+                };
+
+                cartItems.Add(cartItem);
+            }
+
+            var address = new Address
+            {
+                FirstName = orderDto.Address.FirstName,
+                LastName = orderDto.Address.LastName,
+                StreetAddress = orderDto.Address.StreetAddress,
+                City = orderDto.Address.City,
+                ZipCode = orderDto.Address.ZipCode,
+                PhoneNumber = orderDto.Address.PhoneNumber,
             };
 
-            cartItems.Add(cartItem);
+            var order = new UserOrder(cartItems, address, user)
+            {
+                Total = orderDto.Total
+            };
+
+            _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
+            response.Data = order;
+        }
+        catch (Exception ex)
+        {
+            response.Error = ex.Message;
+            response.Success = false;
         }
 
-        var address = new Address
-        {
-            FirstName = orderDto.Address.FirstName,
-            LastName = orderDto.Address.LastName,
-            StreetAddress = orderDto.Address.StreetAddress,
-            City = orderDto.Address.City,
-            ZipCode = orderDto.Address.ZipCode,
-            PhoneNumber = orderDto.Address.PhoneNumber,
-        };
-
-        var order = new UserOrder(cartItems, address, user)
-        {
-            Total = orderDto.Total
-        };
-
-        _context.Orders.Add(order);
-        await _context.SaveChangesAsync();
-
-        return order;
+        return response;
     }
 
     public async Task<UserOrder> GetOrderByIdAsync(string id)

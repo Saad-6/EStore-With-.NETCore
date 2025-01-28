@@ -1,46 +1,49 @@
-using EStore.Code;
-using EStore.Data;
 using EStore.Models.Order;
 using EStore.Models.User;
 using EStore.Services;
 using EStore.Startup;
 using FluentMigrator.Runner;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Default Services
 
 builder.Services.AddControllers();
 
 builder.Services.AddSwaggerGen();
 
+// Our App Specific Services are defined through this wrapper method
+
 builder.Services.AddCustomServices(builder.Configuration);
+
+// Logging
 
 builder.Services.AddLogging(builder =>
 {
     builder.AddConsole()
-           .SetMinimumLevel(LogLevel.Debug);  // Enable Debug level logging
+           .SetMinimumLevel(LogLevel.Debug);  
 });
+
+// Migrations using Fluent Migrator 
 
 builder.Services.AddFluentMigratorCore()
     .ConfigureRunner(runner => runner
-        .AddSqlServer()  // Choose the correct database provider (e.g., SQL Server)
+        .AddSqlServer()  // Database Provider
         .WithGlobalConnectionString(builder.Configuration.GetConnectionString("DefaultConnection"))
         .ScanIn(AppDomain.CurrentDomain.GetAssemblies()).For.Migrations())  // Scan for migrations in the current assembly
     .AddLogging(lb => lb.AddFluentMigratorConsole());
 
 var app = builder.Build();
 
+// Run migrations on startup
 
 using (var scope = app.Services.CreateScope())
 {
     var migrationService = scope.ServiceProvider.GetRequiredService<MigrationExtension>();
-    migrationService.RunMigrations();  // Run migrations on startup
+    migrationService.RunMigrations();  
 }
 
 
@@ -58,6 +61,13 @@ app.UseHttpsRedirection();
 app.UseCors(o => o.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
 
 app.UseAuthentication();
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(builder.Environment.ContentRootPath, "StaticFiles/images")),
+    RequestPath = "/images" // URL prefix for static files
+});
 
 app.UseRouting();
 

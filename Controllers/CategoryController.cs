@@ -3,6 +3,7 @@ using EStore.Data;
 using EStore.Entities;
 using EStore.Interfaces;
 using EStore.Models;
+using EStore.Services;
 using LinqToDB;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,12 +14,12 @@ namespace EStore.Controllers;
 public class CategoryController : ControllerBase
 {
     private readonly ICategoryRepository _categoryRepository;
-    private readonly AltDataContext _context;
 
-    public CategoryController(ICategoryRepository categoryRepository,AltDataContext context)
+    
+    public CategoryController(ICategoryRepository categoryRepository)
     {
          _categoryRepository = categoryRepository;
-        _context = context;
+
     }
 
     [HttpGet]
@@ -29,32 +30,22 @@ public class CategoryController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> AddCategory([FromBody] Category category)
+    public async Task<IActionResult> AddCategory([FromForm] Category category)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
+ 
 
-        var categoryToSave = new CategoryEntity
-        {
-            Description = category.Description,
-            Name = category.Name,
-            ThumbNailUrl = category.ThumbNailUrl
-        };
+        var response = await _categoryRepository.AddCategory(category);
 
-        try
+        if (!response)
         {
-            // Use the mapped entity to insert into the database
-            await _context.InsertAsync(categoryToSave);
-            return Ok(categoryToSave);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
+            return BadRequest(ModelState);
         }
 
-
+            return Ok();
     }
 
     [HttpDelete("{id}")]

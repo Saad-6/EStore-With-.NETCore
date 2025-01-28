@@ -6,6 +6,7 @@ using EStore.Models;
 using EStore.Models.Products;
 using LinqToDB;
 using LinqToDB.Data;
+using static System.Net.Mime.MediaTypeNames;
 
 
 
@@ -15,11 +16,20 @@ public class ProductRepository : IProductRepository
 {
     private readonly AltDataContext _dbContext;
     private readonly ILogRepository _logger;
-    public ProductRepository(AltDataContext dataContext, ILogRepository logger)
+
+    private readonly FileHandler _fileHandler;
+    private const string DIRECTORY = "StaticFiles";
+    private const string SUB_DIRECTORY = "images/products";
+    private readonly IAppSettingsService _appSettingsService;
+    public ProductRepository(AltDataContext dataContext, ILogRepository logger, FileHandler fileHandler, IAppSettingsService appSettingsService)
     {
         _dbContext = dataContext;
         _logger = logger;
+        _fileHandler = fileHandler;
+        _appSettingsService = appSettingsService;
+ 
     }
+  
 
     public async Task<Response> DeleteAsync(int productId)
     {
@@ -101,6 +111,7 @@ public class ProductRepository : IProductRepository
 
     private IQueryable<Product> GetProductQuery()
     {
+  
         return from product in _dbContext.Products
                join category in _dbContext.Categories
                on product.CategoryId equals category.Id
@@ -129,7 +140,7 @@ public class ProductRepository : IProductRepository
                        Id = category.Id,
                        Name = category.Name,
                        Description = category.Description,
-                       ThumbNailUrl = category.ThumbNailUrl
+                       //ThumbNailUrl = category.ThumbNailUrl
                    },
                    SEO = seo == null ? null : new SEO
                    {
@@ -144,14 +155,18 @@ public class ProductRepository : IProductRepository
                    .Select(pi => new ProductImage
                    {
                        Id = pi.Id,
-                       Url = pi.Url,
+                       Url = image.Url.Contains("http", StringComparison.OrdinalIgnoreCase)
+                       ? pi.Url
+                       : $"{_appSettingsService.BaseUrl}/{pi.Url}",
                        AltText = pi.AltText
                    })
                    .ToList(),
                    PrimaryImage = image == null ? null : new ProductImage
                    {
                        Id = image.Id,
-                       Url = image.Url,
+                       Url = image.Url.Contains("http", StringComparison.OrdinalIgnoreCase)
+                       ? image.Url
+                       : $"{_appSettingsService.BaseUrl}/{image.Url}",
                        AltText = image.AltText
                    },
                    
@@ -184,7 +199,9 @@ public class ProductRepository : IProductRepository
                                {
                                    AltText = oi.AltText,
                                    Id = oi.Id,
-                                   Url = oi.Url,
+                                   Url = oi.Url.Contains("http", StringComparison.OrdinalIgnoreCase)
+                                   ? oi.Url
+                                   : $"{_appSettingsService.BaseUrl}/{oi.Url}",
 
                                })
                                .ToList()
@@ -625,4 +642,185 @@ public class ProductRepository : IProductRepository
         return await query.ToListAsync();
     }
 
+    public async Task<Response> SaveAsync(ProductAPI product)
+    {
+        ProductEntity productEntity;
+        var transaction = _dbContext.BeginTransaction();
+
+        try
+        {
+            // Step 1: Add SEO
+            int? seoId = null;
+            if (product.SEO != null)
+            {
+                seoId = await _dbContext.InsertWithInt32IdentityAsync(new SEOEntity
+                {
+                    MetaTitle = product.SEO.MetaTitle,
+                    MetaDescription = product.SEO.MetaDescription,
+                    MetaKeywords = product.SEO.MetaKeywords,
+                    CanonicalUrl = product.SEO.CanonicalUrl,
+                });
+            }
+
+            // Step 2: Add Primary Image
+            int? primaryImageId = null;
+            if (product.PrimaryImageFile != null)
+            {
+                var response = await _fileHandler.SaveFileAsync(product.PrimaryImageFile, DIRECTORY,SUB_DIRECTORY);
+                if (!response.Success)
+                {
+                    return response;
+                }
+                var filePath = (string)response.Data;
+                primaryImageId = await _dbContext.InsertWithInt32IdentityAsync(new ProductImageEntity
+                {
+                    Url = filePath,
+                    AltText = filePath,
+                });
+            }
+
+            // Step 3: Add Discount
+            //int? discountId = null;
+            //if (product.Discount != null)
+            //{
+            //    discountId = await _dbContext.InsertWithInt32IdentityAsync(new DiscountEntity
+            //    {
+            //        isActive = product.Discount.isActive,
+            //        DiscountPrice = product.Discount.DiscountPrice,
+            //        DiscountStartDate = product.Discount.DiscountStartDate,
+            //        DiscountEndDate = product.Discount.DiscountEndDate
+            //    });
+            //}
+
+            // Step 4: Get Category
+            var category = await _dbContext.Categories
+                .FirstOrDefaultAsync(c => c.Id == product.CategoryId);
+
+            if (category == null)
+            {
+                return new Response { Success = false, Error = "Invalid category ID (Category doesn't exist or was deleted)" };
+            }
+
+
+            // Step 5: Add Product
+            productEntity = new ProductEntity
+            {
+                Price = product.Price,
+                Description = product.Description,
+                Name = product.Name,
+                CategoryId = category.Id,
+                Brand = product.Brand,
+                IsActive = true,
+                SKU = product.SKU,
+                Stock = product.Stock,
+                Slug = product.Slug,
+                SEOId = seoId,
+                PrimaryImageId = primaryImageId,
+                DiscountId = 0
+            };
+
+            int productId = await _dbContext.InsertWithInt32IdentityAsync(productEntity);
+
+            // Step 6: Add Additional Product Images
+            if (product.AdditionalImageFiles != null && product.AdditionalImageFiles.Any())
+            {
+                var listOfImages = new List<ProductImageEntity>();
+                foreach(var image in product.AdditionalImageFiles)
+                {
+                    var response = await _fileHandler.SaveFileAsync(image, DIRECTORY,SUB_DIRECTORY);
+                    if (!response.Success)
+                    {
+                        await _logger.LogAsync(response.Error);
+                        return response;
+                    }
+                    var imagePath = (string)response.Data;
+                    var imageEntity = new ProductImageEntity
+                    {
+                        Url = imagePath,
+                        ProductId = productId,
+                        AltText = imagePath,
+
+                    };
+                    listOfImages.Add(imageEntity);
+
+                }
+
+
+                // Perform bulk copy
+                await _dbContext.BulkCopyAsync(listOfImages);
+
+            }
+
+            // Step 7: Add Variants
+            if (product.Variants != null && product.Variants.Any())
+            {
+
+                foreach (var variant in product.Variants)
+                {
+                    var variantId = await _dbContext.InsertWithInt32IdentityAsync(new VariantEntity
+                    {
+                        Name = variant.Name,
+                        DisplayType = variant.DisplayType,
+                        ProductId = productId
+                    });
+
+                    // Add Variant Options
+                    if (variant.Options != null && variant.Options.Any())
+                    {
+                        foreach (var option in variant.Options)
+                        {
+                            var variantOptionId = await _dbContext.InsertWithInt32IdentityAsync(new VariantOptionEntity
+                            {
+                                Value = option.Value,
+                                PriceAdjustment = option.PriceAdjustment,
+                                SKU = option.SKU,
+                                Stock = option.Stock,
+                                VariantEntityId = variantId
+                            });
+                            if (option.OptionImages != null && option.OptionImages.Any())
+                            {
+                                var listOfImages = new List<ProductImageEntity>();
+                                foreach (var optionImage in option.OptionImages)
+                                {
+                                    var response = await _fileHandler.SaveFileAsync(optionImage, DIRECTORY, SUB_DIRECTORY);
+                                    if (!response.Success)
+                                    {
+                                        await _logger.LogAsync(response.Error);
+                                        return response;
+                                    }
+                                    var imagePath = (string)response.Data;
+                                    var imageEntity = new ProductImageEntity
+                                    {
+                                        Url = imagePath,
+                                        ProductId = productId,
+                                        AltText = imagePath,
+                                        VariantOptionsEntityId = variantOptionId
+                                    };
+                                    listOfImages.Add(imageEntity);
+                               
+                                }
+                                // Perform bulk copy
+                                await _dbContext.BulkCopyAsync(listOfImages);
+                            }
+
+                        }
+                    }
+                }
+            }
+
+            // Commit transaction
+            await transaction.CommitAsync();
+            return new Response { Success = true };
+        }
+        catch (Exception ex)
+        {
+            transaction.Rollback();
+            await _logger.LogAsync(ex.Message);
+            return new Response { Success = false, Error = ex.Message };
+        }
+        finally
+        {
+            transaction.Dispose();
+        }
+    }
 }
