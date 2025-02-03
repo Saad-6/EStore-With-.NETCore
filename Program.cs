@@ -58,7 +58,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors(o => o.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
+app.UseCors(o => o
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .WithOrigins("http://localhost:3000") // Replace with your frontend URL
+    .AllowCredentials() // This is required for credentials
+);
+
 
 app.UseAuthentication();
 

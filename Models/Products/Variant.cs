@@ -28,14 +28,17 @@ public class VariantDTO
 
     public string DisplayType { get; set; }
     public string Name { get; set; }
-    public List<VariantOptionDTO> Options { get; set; }
+    public List<VariantOptionDTO>? NewOptions { get; set; }
+    public List<string>? ExistingOptionId { get; set; }
+
 }
 
 public class VariantOptionDTO
 {
     public int Id { get; set; }
     public string Value { get; set; }
-    public List<IFormFile>? OptionImages { get; set; }
+    public List<IFormFile>? NewOptionImages { get; set; }
+    public List<string>? ExistingOptionImageIds { get; set; }
     public decimal PriceAdjustment { get; set; } = 0;
     public int Stock { get; set; } = 0;
     public string? SKU { get; set; }

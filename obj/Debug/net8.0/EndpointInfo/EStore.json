@@ -499,6 +499,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "Id": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
                   "Name": {
                     "type": "string"
                   },
@@ -549,22 +553,37 @@
                     "type": "string",
                     "format": "binary"
                   },
-                  "AdditionalImageFiles": {
+                  "AdditionalImages.Files": {
                     "type": "array",
                     "items": {
                       "type": "string",
                       "format": "binary"
                     }
                   },
-                  "Variants": {
+                  "AdditionalImages.AlreadyPresentUrls": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "Variants.NewVariants": {
                     "type": "array",
                     "items": {
                       "$ref": "#/components/schemas/VariantDTO"
+                    }
+                  },
+                  "Variants.ExistingVariantIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
                     }
                   }
                 }
               },
               "encoding": {
+                "Id": {
+                  "style": "form"
+                },
                 "Name": {
                   "style": "form"
                 },
@@ -610,10 +629,16 @@
                 "PrimaryImageFile": {
                   "style": "form"
                 },
-                "AdditionalImageFiles": {
+                "AdditionalImages.Files": {
                   "style": "form"
                 },
-                "Variants": {
+                "AdditionalImages.AlreadyPresentUrls": {
+                  "style": "form"
+                },
+                "Variants.NewVariants": {
+                  "style": "form"
+                },
+                "Variants.ExistingVariantIds": {
                   "style": "form"
                 }
               }
@@ -651,6 +676,29 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/Product/id/{id}": {
+      "get": {
+        "tags": [
+          "Product"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -1067,10 +1115,17 @@
             "type": "string",
             "nullable": true
           },
-          "options": {
+          "newOptions": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/VariantOptionDTO"
+            },
+            "nullable": true
+          },
+          "existingOptionId": {
+            "type": "array",
+            "items": {
+              "type": "string"
             },
             "nullable": true
           }
@@ -1088,11 +1143,18 @@
             "type": "string",
             "nullable": true
           },
-          "optionImages": {
+          "newOptionImages": {
             "type": "array",
             "items": {
               "type": "string",
               "format": "binary"
+            },
+            "nullable": true
+          },
+          "existingOptionImageIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
             },
             "nullable": true
           },

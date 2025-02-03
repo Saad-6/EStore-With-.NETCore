@@ -4,8 +4,10 @@ using EStore.Entities;
 using EStore.Interfaces;
 using EStore.Models;
 using EStore.Models.Products;
+using FluentMigrator;
 using LinqToDB;
 using LinqToDB.Data;
+using System.Text.Json;
 using static System.Net.Mime.MediaTypeNames;
 
 
@@ -109,118 +111,12 @@ public class ProductRepository : IProductRepository
         }
     }
 
-    private IQueryable<Product> GetProductQuery()
-    {
-  
-        return from product in _dbContext.Products
-               join category in _dbContext.Categories
-               on product.CategoryId equals category.Id
-               join seo in _dbContext.SEOs
-               on product.SEOId equals seo.Id into seoJoin
-               from seo in seoJoin.DefaultIfEmpty()  // Left join to include products without SEO
-               join image in _dbContext.ProductImages
-               on product.PrimaryImageId equals image.Id into imageJoin
-               from image in imageJoin.DefaultIfEmpty()  // Left join to include products without image
-               join discount in _dbContext.Discounts
-               on product.DiscountId equals discount.Id into discountJoin
-               from discount in discountJoin.DefaultIfEmpty()  // Left join to include products without discount
-               select new Product
-               {
-                   Id = product.Id,
-                   Name = product.Name,
-                   Description = product.Description,
-                   Price = product.Price,
-                   SKU = product.SKU,
-                   Stock = product.Stock,
-                   Brand = product.Brand,
-                   Slug = product.Slug,
-                   IsActive = product.IsActive,
-                   Category = new Category
-                   {
-                       Id = category.Id,
-                       Name = category.Name,
-                       Description = category.Description,
-                       //ThumbNailUrl = category.ThumbNailUrl
-                   },
-                   SEO = seo == null ? null : new SEO
-                   {
-                       Id = seo.Id,
-                       MetaTitle = seo.MetaTitle,
-                       MetaDescription = seo.MetaDescription,
-                       MetaKeywords = seo.MetaKeywords,
-                       CanonicalUrl = seo.CanonicalUrl
-                   },
-                   Images = _dbContext.ProductImages
-                   .Where(pi => pi.ProductId == product.Id ) 
-                   .Select(pi => new ProductImage
-                   {
-                       Id = pi.Id,
-                       Url = image.Url.Contains("http", StringComparison.OrdinalIgnoreCase)
-                       ? pi.Url
-                       : $"{_appSettingsService.BaseUrl}/{pi.Url}",
-                       AltText = pi.AltText
-                   })
-                   .ToList(),
-                   PrimaryImage = image == null ? null : new ProductImage
-                   {
-                       Id = image.Id,
-                       Url = image.Url.Contains("http", StringComparison.OrdinalIgnoreCase)
-                       ? image.Url
-                       : $"{_appSettingsService.BaseUrl}/{image.Url}",
-                       AltText = image.AltText
-                   },
-                   
-                   Discount = discount == null ? null : new Discount
-                   {
-                       Id = discount.Id,
-                       DiscountPrice = discount.DiscountPrice,
-                       DiscountStartDate = discount.DiscountStartDate,
-                       DiscountEndDate = discount.DiscountEndDate
-                   },
-                   Variants = _dbContext.Variants
-               .Where(v => v.ProductId == product.Id)
-               .Select(v => new Variant
-               {
-                   Id = v.Id,
-                   Name = v.Name,
-                   DisplayType = v.DisplayType,
-                   Options = _dbContext.VariantOptions
-                       .Where(vo => vo.VariantEntityId == v.Id)
-                       .Select(vo => new VariantOption
-                       {
-                           Id = vo.Id,
-                           Value = vo.Value,
-                           PriceAdjustment = vo.PriceAdjustment,
-                           Stock = vo.Stock,
-                           SKU = vo.SKU,
-                           OptionImages = _dbContext.ProductImages
-                               .Where(pi => pi.VariantOptionsEntityId == vo.Id)
-                               .Select(oi => new ProductImage
-                               {
-                                   AltText = oi.AltText,
-                                   Id = oi.Id,
-                                   Url = oi.Url.Contains("http", StringComparison.OrdinalIgnoreCase)
-                                   ? oi.Url
-                                   : $"{_appSettingsService.BaseUrl}/{oi.Url}",
-
-                               })
-                               .ToList()
-                       })
-                       .ToList()
-               })
-               .ToList()
-               };
-    }
     public async Task<List<Product>> GetAllAsync()
     {
        
         return await GetProductQuery().ToListAsync();
     }
 
-    public Task<Product> GetProductById(int id)
-    {
-        throw new NotImplementedException();
-    }
 
     public async Task<Product> GetProductBySku(string sku)
     {
@@ -257,7 +153,6 @@ public class ProductRepository : IProductRepository
         return await GetProductQuery()
      .ToListAsync();
     }
-
     public async Task<Response> SaveAsync(Product product)
     {
         ProductEntity productEntity;
@@ -344,6 +239,8 @@ public class ProductRepository : IProductRepository
                 await _dbContext.BulkCopyAsync(imageEntities);
             }
 
+
+
             // Step 7: Add Variants
             if (product.Variants != null && product.Variants.Any())
             {
@@ -391,6 +288,8 @@ public class ProductRepository : IProductRepository
                 }
             }
 
+
+
             // Commit transaction
             await transaction.CommitAsync();
             return new Response { Success = true};
@@ -407,12 +306,6 @@ public class ProductRepository : IProductRepository
         }
 
     }
-
-    public Task<List<Product>> Search(string query)
-    {
-        throw new NotImplementedException();
-    }
-
     public async Task<Response> UpdateAsync(Product product)
     {
         using var transaction = await _dbContext.BeginTransactionAsync();
@@ -622,8 +515,10 @@ public class ProductRepository : IProductRepository
             return new Response { Success = false, Error = ex.Message };
         }
     }
-
-
+    public Task<List<Product>> Search(string query)
+    {
+        throw new NotImplementedException();
+    }
     public async Task<List<SimpleProductDTO>> GetProductDTOs()
     {
         var query = from product in _dbContext.Products
@@ -641,12 +536,117 @@ public class ProductRepository : IProductRepository
 
         return await query.ToListAsync();
     }
+    public async Task<Product> GetProductById(int id)
+    {
+        return await GetProductQuery().FirstOrDefaultAsync(m => m.Id == id);
+    }
+    private IQueryable<Product> GetProductQuery()
+    {
+  
+        return from product in _dbContext.Products
+               join category in _dbContext.Categories
+               on product.CategoryId equals category.Id
+               join seo in _dbContext.SEOs
+               on product.SEOId equals seo.Id into seoJoin
+               from seo in seoJoin.DefaultIfEmpty()  // Left join to include products without SEO
+               join image in _dbContext.ProductImages
+               on product.PrimaryImageId equals image.Id into imageJoin
+               from image in imageJoin.DefaultIfEmpty()  // Left join to include products without image
+               join discount in _dbContext.Discounts
+               on product.DiscountId equals discount.Id into discountJoin
+               from discount in discountJoin.DefaultIfEmpty()  // Left join to include products without discount
+               select new Product
+               {
+                   Id = product.Id,
+                   Name = product.Name,
+                   Description = product.Description,
+                   Price = product.Price,
+                   SKU = product.SKU,
+                   Stock = product.Stock,
+                   Brand = product.Brand,
+                   Slug = product.Slug,
+                   IsActive = product.IsActive,
+                   Category = new Category
+                   {
+                       Id = category.Id,
+                       Name = category.Name,
+                       //Description = category.Description,
+                       //ThumbNailUrl = category.ThumbNailUrl
+                   },
+                   SEO = seo == null ? null : new SEO
+                   {
+                       Id = seo.Id,
+                       MetaTitle = seo.MetaTitle,
+                       MetaDescription = seo.MetaDescription,
+                       MetaKeywords = seo.MetaKeywords,
+                       CanonicalUrl = seo.CanonicalUrl
+                   },
+                   Images = _dbContext.ProductImages
+                   .Where(pi => pi.ProductId == product.Id ) 
+                   .Select(pi => new ProductImage
+                   {
+                       Id = pi.Id,
+                       Url = image.Url.Contains("http", StringComparison.OrdinalIgnoreCase)
+                       ? pi.Url
+                       : $"{_appSettingsService.BaseUrl}/{pi.Url}",
+                       AltText = pi.AltText
+                   })
+                   .ToList(),
+                   PrimaryImage = image == null ? null : new ProductImage
+                   {
+                       Id = image.Id,
+                       Url = image.Url.Contains("http", StringComparison.OrdinalIgnoreCase)
+                       ? image.Url
+                       : $"{_appSettingsService.BaseUrl}/{image.Url}",
+                       AltText = image.AltText
+                   },
+                   
+                   Discount = discount == null ? null : new Discount
+                   {
+                       Id = discount.Id,
+                       DiscountPrice = discount.DiscountPrice,
+                       DiscountStartDate = discount.DiscountStartDate,
+                       DiscountEndDate = discount.DiscountEndDate
+                   },
+                   Variants = _dbContext.Variants
+               .Where(v => v.ProductId == product.Id)
+               .Select(v => new Variant
+               {
+                   Id = v.Id,
+                   Name = v.Name,
+                   DisplayType = v.DisplayType,
+                   Options = _dbContext.VariantOptions
+                       .Where(vo => vo.VariantEntityId == v.Id)
+                       .Select(vo => new VariantOption
+                       {
+                           Id = vo.Id,
+                           Value = vo.Value,
+                           PriceAdjustment = vo.PriceAdjustment,
+                           Stock = vo.Stock,
+                           SKU = vo.SKU,
+                           OptionImages = _dbContext.ProductImages
+                               .Where(pi => pi.VariantOptionsEntityId == vo.Id)
+                               .Select(oi => new ProductImage
+                               {
+                                   AltText = oi.AltText,
+                                   Id = oi.Id,
+                                   Url = oi.Url.Contains("http", StringComparison.OrdinalIgnoreCase)
+                                   ? oi.Url
+                                   : $"{_appSettingsService.BaseUrl}/{oi.Url}",
 
+                               })
+                               .ToList()
+                       })
+                       .ToList()
+               })
+               .ToList()
+               };
+    }
     public async Task<Response> SaveAsync(ProductAPI product)
     {
         ProductEntity productEntity;
         var transaction = _dbContext.BeginTransaction();
-
+        Response response;
         try
         {
             // Step 1: Add SEO
@@ -666,7 +666,7 @@ public class ProductRepository : IProductRepository
             int? primaryImageId = null;
             if (product.PrimaryImageFile != null)
             {
-                var response = await _fileHandler.SaveFileAsync(product.PrimaryImageFile, DIRECTORY,SUB_DIRECTORY);
+                response = await _fileHandler.SaveFileAsync(product.PrimaryImageFile, DIRECTORY,SUB_DIRECTORY);
                 if (!response.Success)
                 {
                     return response;
@@ -722,12 +722,12 @@ public class ProductRepository : IProductRepository
             int productId = await _dbContext.InsertWithInt32IdentityAsync(productEntity);
 
             // Step 6: Add Additional Product Images
-            if (product.AdditionalImageFiles != null && product.AdditionalImageFiles.Any())
+            if (product?.AdditionalImages?.Files != null && product.AdditionalImages.Files.Any())
             {
                 var listOfImages = new List<ProductImageEntity>();
-                foreach(var image in product.AdditionalImageFiles)
+                foreach(var image in product.AdditionalImages.Files)
                 {
-                    var response = await _fileHandler.SaveFileAsync(image, DIRECTORY,SUB_DIRECTORY);
+                    response = await _fileHandler.SaveFileAsync(image, DIRECTORY,SUB_DIRECTORY);
                     if (!response.Success)
                     {
                         await _logger.LogAsync(response.Error);
@@ -751,62 +751,15 @@ public class ProductRepository : IProductRepository
 
             }
 
+
             // Step 7: Add Variants
-            if (product.Variants != null && product.Variants.Any())
+            if (product?.Variants?.NewVariants != null && product.Variants.NewVariants.Any())
             {
-
-                foreach (var variant in product.Variants)
-                {
-                    var variantId = await _dbContext.InsertWithInt32IdentityAsync(new VariantEntity
-                    {
-                        Name = variant.Name,
-                        DisplayType = variant.DisplayType,
-                        ProductId = productId
-                    });
-
-                    // Add Variant Options
-                    if (variant.Options != null && variant.Options.Any())
-                    {
-                        foreach (var option in variant.Options)
-                        {
-                            var variantOptionId = await _dbContext.InsertWithInt32IdentityAsync(new VariantOptionEntity
-                            {
-                                Value = option.Value,
-                                PriceAdjustment = option.PriceAdjustment,
-                                SKU = option.SKU,
-                                Stock = option.Stock,
-                                VariantEntityId = variantId
-                            });
-                            if (option.OptionImages != null && option.OptionImages.Any())
-                            {
-                                var listOfImages = new List<ProductImageEntity>();
-                                foreach (var optionImage in option.OptionImages)
-                                {
-                                    var response = await _fileHandler.SaveFileAsync(optionImage, DIRECTORY, SUB_DIRECTORY);
-                                    if (!response.Success)
-                                    {
-                                        await _logger.LogAsync(response.Error);
-                                        return response;
-                                    }
-                                    var imagePath = (string)response.Data;
-                                    var imageEntity = new ProductImageEntity
-                                    {
-                                        Url = imagePath,
-                                        ProductId = productId,
-                                        AltText = imagePath,
-                                        VariantOptionsEntityId = variantOptionId
-                                    };
-                                    listOfImages.Add(imageEntity);
-                               
-                                }
-                                // Perform bulk copy
-                                await _dbContext.BulkCopyAsync(listOfImages);
-                            }
-
-                        }
-                    }
-                }
+                response = await AddNewVariant(product.Variants.NewVariants, productId);
+          
             }
+
+
 
             // Commit transaction
             await transaction.CommitAsync();
@@ -822,5 +775,334 @@ public class ProductRepository : IProductRepository
         {
             transaction.Dispose();
         }
+    }
+
+    async Task<Response> AddNewVariant(List<VariantDTO> variants ,int productId)
+    {
+        Response response = new();
+        var variantIdsList = variants.Select(m => m.Id).ToList();
+        await _dbContext.Variants.Where(m => m.ProductId == productId && !variantIdsList.Contains(m.Id)).DeleteAsync();
+        foreach (var variant in variants)
+        {
+            var optionIdsList = variant?.NewOptions?.Select(m => m.Id).ToList();
+            await _dbContext.VariantOptions.Where(m => m.VariantEntityId == variant.Id  && !optionIdsList.Contains(m.Id)).DeleteAsync();
+            int variantId;
+
+            // Variant Exists
+            if(variant.Id != 0)
+            {
+                var existingVariant = _dbContext.Variants.FirstOrDefault(m=>m.Id == variant.Id);
+                variantId = variant.Id;
+
+                existingVariant.Name = variant.Name;
+                existingVariant.DisplayType = variant.DisplayType;
+                existingVariant.ProductId = productId;
+
+                await _dbContext.UpdateAsync(existingVariant);
+            }
+            // New Variant
+            else
+            {
+
+            variantId = await _dbContext.InsertWithInt32IdentityAsync(new VariantEntity
+            {
+                Name = variant.Name,
+                DisplayType = variant.DisplayType,
+                ProductId = productId
+            });
+            }
+
+            // Add Variant Options
+            if (variant.NewOptions != null && variant.NewOptions.Any())
+            {
+                foreach (var option in variant.NewOptions)
+                {
+                    int optionId;
+                    var optiondImageIdsToKeepString = option?.ExistingOptionImageIds?.FirstOrDefault()?.Split(',')
+                    .Select(url => url.Trim('"'))
+                    .Select(url => TrimUrl(url))
+                    .ToList() ?? new List<string>();
+
+                    var optiondImageIdsToKeep = ParseInt(optiondImageIdsToKeepString);
+
+
+
+                    // Optioon already exists
+                    if(option?.Id != 0)
+                    {
+                        optionId = option.Id;
+
+                        var existingOption = _dbContext.VariantOptions.FirstOrDefault(m => m.Id == option.Id) ?? new VariantOptionEntity();
+                       
+                        existingOption.SKU = option.SKU;
+                        existingOption.PriceAdjustment = option.PriceAdjustment;
+                        existingOption.Stock = option.Stock;
+                        existingOption.Value = option.Value;
+                        await _dbContext.UpdateAsync(existingOption);
+
+                    }
+                    // Option is new
+                    else
+                    {
+                    optionId = await _dbContext.InsertWithInt32IdentityAsync(new VariantOptionEntity
+                    {
+                        Value = option.Value,
+                        PriceAdjustment = option.PriceAdjustment,
+                        SKU = option.SKU,
+                        Stock = option.Stock,
+                        VariantEntityId = variantId
+                    });
+
+                    }
+                    await _dbContext.ProductImages.Where(m => m.VariantOptionsEntityId == optionId && !optiondImageIdsToKeep.Contains(m.Id)).DeleteAsync();
+                    if (option.NewOptionImages != null && option.NewOptionImages.Any())
+                    {
+                        var listOfImages = new List<ProductImageEntity>();
+                        foreach (var optionImage in option.NewOptionImages)
+                        {
+
+                            response = await _fileHandler.SaveFileAsync(optionImage, DIRECTORY, SUB_DIRECTORY);
+                            if (!response.Success)
+                            {
+                                await _logger.LogAsync(response.Error);
+                                return response;
+                            }
+                            var imagePath = (string)response.Data;
+                            var imageEntity = new ProductImageEntity
+                            {
+                                Url = imagePath,
+                                AltText = imagePath,
+                                VariantOptionsEntityId = optionId
+                            };
+                            listOfImages.Add(imageEntity);
+
+                        }
+                        // Perform bulk copy
+                        await _dbContext.BulkCopyAsync(listOfImages);
+                    }
+
+                }
+            }
+        }
+        return response;
+    }
+    public async Task<Response> UpdateAsync(ProductAPI product)
+    {
+        var transaction = _dbContext.BeginTransaction();
+        Response response = new();
+
+        try
+        {
+            var productEntity = await _dbContext.Products.FirstOrDefaultAsync(p => p.Id == product.Id);
+            if (productEntity == null)
+            {
+                return new Response { Success = false, Error = "Product not found" };
+            }
+
+            // Step 1: Update SEO
+            if (product.SEO != null)
+            {
+                if (productEntity.SEOId.HasValue)
+                {
+                    var seoEntity = await _dbContext.SEOs.FirstOrDefaultAsync(s => s.Id == productEntity.SEOId);
+                    if (seoEntity != null)
+                    {
+                        seoEntity.MetaTitle = product.SEO.MetaTitle;
+                        seoEntity.MetaDescription = product.SEO.MetaDescription;
+                        seoEntity.MetaKeywords = product.SEO.MetaKeywords;
+                        seoEntity.CanonicalUrl = product.SEO.CanonicalUrl;
+                        await _dbContext.UpdateAsync(seoEntity);
+                    }
+                }
+                else
+                {
+                    productEntity.SEOId = await _dbContext.InsertWithInt32IdentityAsync(new SEOEntity
+                    {
+                        MetaTitle = product.SEO.MetaTitle,
+                        MetaDescription = product.SEO.MetaDescription,
+                        MetaKeywords = product.SEO.MetaKeywords,
+                        CanonicalUrl = product.SEO.CanonicalUrl,
+                    });
+                }
+            }
+            // End
+
+            // Step 2: Update Primary Image
+            if (product.PrimaryImageFile != null)
+            {
+                response = await _fileHandler.SaveFileAsync(product.PrimaryImageFile, DIRECTORY, SUB_DIRECTORY);
+                if (!response.Success)
+                {
+                    return response;
+                }
+                var filePath = (string)response.Data;
+
+                if (productEntity.PrimaryImageId.HasValue)
+                {
+                    var imageEntity = await _dbContext.ProductImages.FirstOrDefaultAsync(i => i.Id == productEntity.PrimaryImageId);
+                    if (imageEntity != null)
+                    {
+                        imageEntity.Url = filePath;
+                        imageEntity.AltText = filePath;
+                        await _dbContext.UpdateAsync(imageEntity);
+                    }
+                }
+                else
+                {
+                    productEntity.PrimaryImageId = await _dbContext.InsertWithInt32IdentityAsync(new ProductImageEntity
+                    {
+                        Url = filePath,
+                        AltText = filePath,
+                        ProductId = product.Id
+                    });
+                }
+            }
+            // End
+
+
+            // Step 3: Update Category
+            var category = await _dbContext.Categories.FirstOrDefaultAsync(c => c.Id == product.CategoryId);
+            if (category == null)
+            {
+                await _logger.LogAsync("Inavlid Category Id while updating product");
+                return new Response { Success = false, Error = "Invalid category ID" };
+            }
+            productEntity.CategoryId = category.Id;
+
+            // Step 4: Update Product Details
+            productEntity.Price = product.Price;
+            productEntity.Description = product.Description;
+            productEntity.Name = product.Name;
+            productEntity.Brand = product.Brand;
+            productEntity.SKU = product.SKU;
+            productEntity.Stock = product.Stock;
+            productEntity.Slug = product.Slug;
+            await _dbContext.UpdateAsync(productEntity);
+
+            // End
+
+            var existingImages = await _dbContext.ProductImages      // All Images related to the product (minus primary image)
+                .Where(img => img.ProductId == productEntity.Id)
+                .ToListAsync();
+
+            existingImages.Select(m => m.Url = _appSettingsService.BaseUrl + "/" + m.Url).ToList(); // Append the URL before imgages to make valid comparisons (Its stored as relative path in DB and as a url when fetched from the frontend)
+
+            var imagesToDelete = new List<ProductImageEntity>();  // Initialize the images to be deleted list 
+
+            var imageUrlsToKeep = new List<string>(); // Initialize the images to be kept list 
+
+            var existingUrls = product.AdditionalImages?.AlreadyPresentUrls?
+                .FirstOrDefault() // Get the single string
+                ?.Split(',') // Split by comma
+                .Select(url => url.Trim('"')) // Trim extra quotes
+                .Select(url => TrimUrl(url)) // Apply your trim function
+                .ToList() ?? new List<string>();
+            // Trim and prepare exisitng URLs to be added to the keep list
+
+
+            imageUrlsToKeep.AddRange(existingUrls);  // Concat the alreadyPresent and newlyAdded lists
+
+
+            // Step 5.1 : Add newly added Additional Images
+            if (product.AdditionalImages?.Files != null && product.AdditionalImages.Files.Any())
+            {
+                var newImages = new List<ProductImageEntity>();
+
+                foreach (var image in product.AdditionalImages.Files)
+                {
+                    var imgResponse = await _fileHandler.SaveFileAsync(image, DIRECTORY, SUB_DIRECTORY);
+                    if (!imgResponse.Success)
+                    {
+                        return imgResponse;
+                    }
+
+                    newImages.Add(new ProductImageEntity
+                    {
+                        Url = (string)imgResponse.Data,
+                        ProductId = product.Id,
+                        AltText = (string)imgResponse.Data
+                    });
+                }
+
+                // Newly added images will be added to the keep list
+                 var newImageUrls = newImages.Select(img => img.Url).ToList();
+                imageUrlsToKeep = imageUrlsToKeep.Concat(newImageUrls).ToList();
+
+                // Add only new images
+                await _dbContext.BulkCopyAsync(newImages);
+            }
+
+            // End
+
+
+
+            // Step 5.2 : Delete removed Images
+
+            // Delete any image that isn't part of either (meaning it was removed during the update process)
+            imagesToDelete = existingImages.Where(img => !imageUrlsToKeep.Contains(img.Url)).ToList();
+            foreach (var image in imagesToDelete)
+            {
+                await _fileHandler.DeleteFileAsync(DIRECTORY,SUB_DIRECTORY,image.Url);
+            }
+            if (imagesToDelete.Any())
+            { /// DELETE with where
+    
+                var imageIdsToDelete = imagesToDelete.Select(img => img.Id).ToList();
+
+                await _dbContext.ProductImages
+            .Where(img => imageIdsToDelete.Contains(img.Id))
+            .DeleteAsync();
+
+            }
+
+
+            // Step 6: Update Variants
+
+            var variantIdsString = product?.Variants?.ExistingVariantIds?.FirstOrDefault()
+                ?.Split(',') 
+                .Select(url => url.Trim('"')) 
+                .Select(url => TrimUrl(url)) 
+                .ToList() ?? new List<string>();
+            var variantIds = ParseInt(variantIdsString);
+            
+            await _dbContext.Variants
+            .Where(v => v.ProductId == product.Id && !variantIds.Contains(v.Id)) // Exclude variants in the list
+            .DeleteAsync();
+
+            if (product?.Variants?.NewVariants != null && product.Variants.NewVariants.Any())
+            {
+                response = await AddNewVariant(product.Variants.NewVariants, product.Id ?? 0);
+            }
+
+            // Commit transaction
+            await transaction.CommitAsync();
+            return new Response { Success = true };
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            await _logger.LogAsync(ex.Message);
+            return new Response { Success = false, Error = ex.Message };
+        }
+        finally
+        {
+            transaction.Dispose();
+        }
+    }
+    string TrimUrl(string url)
+    {
+        return url.Trim(new char[] { '[', ']', '"' });
+    }
+    List<int> ParseInt(List<string> str)
+    {
+        List<int> list = new();
+        foreach(var c in str)
+        {
+            if (int.TryParse(c, out int num))
+            {
+                list.Add(num);
+            }
+        }
+        return list;
     }
 }

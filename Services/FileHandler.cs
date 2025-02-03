@@ -19,7 +19,12 @@ public class FileHandler
         }
         return existingFilePath;
     }
+    public  async Task<Response> DeleteFileAsync(string directory, string subDirectory, string fileName)
+    {
 
+
+        return new Response { };
+    }
     public async Task<Response> SaveFileAsync(IFormFile file, string directory, string subDirectory)
     {
         Response response = new();

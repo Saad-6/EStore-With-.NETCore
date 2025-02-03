@@ -11,6 +11,7 @@ public interface IProductRepository
     Task<Response> SaveAsync(ProductAPI product);
     Task<Response> DeleteAsync(int productId);
     Task<Response> UpdateAsync(Product product);
+    Task<Response> UpdateAsync(ProductAPI product);
     Task<List<Product>> GetAllAsync();
 
     Task<List<Product>> Search(string query);

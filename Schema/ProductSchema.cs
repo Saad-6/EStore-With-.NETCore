@@ -5,7 +5,7 @@ using static LinqToDB.Reflection.Methods.LinqToDB;
 
 namespace EStore.Schema;
 
-[Migration(20231113401)]
+[Migration(202311643401)]
 public class ProductSchema : Migration
 {
     public override void Up()
@@ -13,7 +13,7 @@ public class ProductSchema : Migration
         Create.Table(nameof(ProductEntity))
             .WithColumn(nameof(ProductEntity.Id)).AsInt32().PrimaryKey().Identity()
             .WithColumn(nameof(ProductEntity.Name)).AsString().NotNullable()
-            .WithColumn(nameof(ProductEntity.Description)).AsString(1500).Nullable()
+            .WithColumn(nameof(ProductEntity.Description)).AsString(3500).Nullable()
             .WithColumn(nameof(ProductEntity.Brand)).AsString().Nullable()
             .WithColumn(nameof(ProductEntity.Slug)).AsString().Nullable()
             .WithColumn(nameof(ProductEntity.Price)).AsDecimal().NotNullable()

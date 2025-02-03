@@ -39,6 +39,13 @@ public class ProductController : ControllerBase
         return Ok(products);
     }
 
+    [HttpGet("id/{id}")]
+    public async Task<IActionResult> GetProductById(int id)
+    {
+        var products = await _productRepository.GetProductById(id);
+        return Ok(products);
+    }
+
     [HttpGet("recommendations/{slug}")]
     public async Task<IActionResult> GetProductRecommendations(string slug)
     {
@@ -54,23 +61,20 @@ public class ProductController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var response = await _productRepository.SaveAsync(product);
+        Response response;
+
+        if (operation == Operation.Add.ToString().ToLower())
+        {
+            response = await _productRepository.SaveAsync(product);
+        }
+        else
+        {
+            response = await _productRepository.UpdateAsync(product);
+        }
         if (response.Success)
         {
-            return Ok();
+            return Ok(product);
         }
-        //if(operation == Operation.Add.ToString().ToLower())
-        //{
-        //    response = await _productRepository.SaveAsync(product);
-        //}
-        //else
-        //{
-        //    response = await _productRepository.UpdateAsync(product);
-        //}
-        //if (response.Success)
-        //{
-        //    return Ok(product);
-        //}
         return BadRequest(response.Error);
     }
 

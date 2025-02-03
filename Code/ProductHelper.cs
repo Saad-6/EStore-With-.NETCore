@@ -295,4 +295,9 @@ public class ProductHelper : IProductRepository
     {
         throw new NotImplementedException();
     }
+
+    public Task<Response> UpdateAsync(ProductAPI product)
+    {
+        throw new NotImplementedException();
+    }
 }
