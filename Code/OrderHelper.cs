@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
-public class OrderHelper : IOrderRepository
+public class OrderHelper 
 {
     private readonly AppDbContext _context;
     private readonly UserManager<AppUser> _userManager;
@@ -66,9 +66,9 @@ public class OrderHelper : IOrderRepository
 
                 var selectedVariants = ci.SelectedVariants.Select(sv => new SelectedVariant
                 {
-                    VariantName = sv.Key,
-                    OptionValue = sv.Value.Value,
-                    PriceAdjustment = sv.Value.PriceAdjustment
+                    VariantName = _context.Variants.FirstOrDefault(m=>m.Id == sv.Key).Name,
+                    OptionValue = _context.VariantOptions.FirstOrDefault(m => m.Id == sv.Value).Value,
+                    PriceAdjustment = _context.VariantOptions.FirstOrDefault(m => m.Id == sv.Value).PriceAdjustment
                 }).ToList();
 
                 var subTotal = ci.Quantity * (product.Price + selectedVariants.Sum(sv => sv.PriceAdjustment));

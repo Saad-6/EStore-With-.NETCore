@@ -14,7 +14,7 @@ public class OrderEntity
     [Column(Name = "Total"), NotNull] 
     public decimal Total { get; set; }
 
-    [Column(Name = "UserId"), NotNull] 
+    [Column(Name = "UserId"), Nullable] 
     public string UserId { get; set; }
 
     [Column(Name = "AddressId"), NotNull] 

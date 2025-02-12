@@ -1,9 +1,13 @@
 ﻿using EStore.Data;
+using EStore.DTOs;
 using EStore.Entities;
 using EStore.Interfaces;
 using EStore.Models;
+using EStore.Models.Basket;
 using EStore.Models.Order;
+using EStore.Models.User;
 using LinqToDB;
+using LinqToDB.Data;
 
 namespace EStore.Services;
 
@@ -18,80 +22,375 @@ public class OrderRepository : IOrderRepository
     }
     public async Task<Response> CreateOrderAsync(OrderCreateDto orderDto)
     {
+        using var transaction = _dataContext.BeginTransaction();
         var response = new Response();
         try
         {
-            // Save address 
-        var addressEntity = new AddressEntity()
-        {
-            City = orderDto.Address.City,
-            ZipCode = orderDto.Address.ZipCode,
-            StreetAddress = orderDto.Address.StreetAddress,
-            FirstName = orderDto.Address.FirstName,
-            LastName = orderDto.Address.LastName,
-            PhoneNumber = orderDto.Address.PhoneNumber,
-        };
+            if (orderDto == null || orderDto.CartItems == null || !orderDto.CartItems.Any())
+            {
+                throw new ArgumentException("Order data is invalid or cart is empty");
+            }
 
-        var addressId = await _dataContext.InsertWithInt32IdentityAsync(addressEntity);
+            // Save address 
+            var addressEntity = new AddressEntity
+            {
+                City = orderDto.Address.City,
+                ZipCode = orderDto.Address.ZipCode,
+                StreetAddress = orderDto.Address.StreetAddress,
+                FirstName = orderDto.Address.FirstName,
+                LastName = orderDto.Address.LastName,
+                PhoneNumber = orderDto.Address.PhoneNumber,
+            };
+
+            var addressId = await _dataContext.InsertWithInt32IdentityAsync(addressEntity);
 
             // Save order with address Id
-            var orderEntity = new OrderEntity()
+            var orderEntity = new OrderEntity
             {
                 AddressId = addressId,
                 Created = DateTime.UtcNow,
                 Total = orderDto.Total,
                 Status = "pending",
-                PaymentMethod = orderDto.PaymentMethod,
-                UserId = orderDto?.UserId 
+                PaymentMethod = orderDto.PaymentMethod ?? "cod",
+                UserId = orderDto.UserId ?? string.Empty
             };
 
-        var orderId = await _dataContext.InsertWithInt32IdentityAsync(orderEntity);
+            // Depending on your implementation, InsertAsync might return the generated id.
+            await _dataContext.InsertAsync(orderEntity);
 
-            // Save cartItems with OrderId'
-            var cartItems = new List<CartItemEntity>();
-            foreach(var ci in orderDto.CartItems)
+            var selectedVariants = new List<SelectedVariantEntity>();
+
+            foreach (var ci in orderDto.CartItems)
             {
-                cartItems.Add(new CartItemEntity
+                // Check if the product exists
+                var product = await _dataContext.Products.FirstOrDefaultAsync(m => m.Id == ci.ProductId);
+                if (product == null)
                 {
-                    OrderEntityId = orderId,
+                    throw new Exception($"Product with ID {ci.ProductId} not found");
+                }
+
+                // Save cart item with OrderId
+                var cartItemId = await _dataContext.InsertWithInt32IdentityAsync(new CartItemEntity
+                {
+                    OrderEntityId = orderEntity.Id,
                     ProductId = ci.ProductId,
                     Quantity = ci.Quantity,
-                
+                    SubTotal = ci.Price * ci.Quantity,
                 });
+
+                // Process selected variants if any (ci.SelectedVariants is assumed to be a Dictionary<int, int>
+                if (ci.SelectedVariants != null)
+                {
+                    foreach (var variant in ci.SelectedVariants)
+                    {
+                        // variant.Key is the VariantEntityId, variant.Value is the OptionEntityId
+                        selectedVariants.Add(new SelectedVariantEntity
+                        {
+                            CartItemEntityId = cartItemId,
+                            VariantEntityId = variant.Key,
+                            OptionEntityId = variant.Value,
+                        });
+                    }
+                }
             }
 
+            if (selectedVariants.Any())
+            {
+                await _dataContext.BulkCopyAsync(selectedVariants);
+            }
 
+            await transaction.CommitAsync();
 
+            response.Success = true;
             response.Data = orderEntity;
-
         }
         catch (Exception ex)
         {
-            response.Success = false;
-            response.Error = ex.Message;
+            await transaction.RollbackAsync();
             await _logger.LogAsync(ex.Message);
+            response.Success = false;
+            response.Error = $"Failed to create order: {ex.Message}";
         }
 
         return response;
     }
 
-    public Task<List<UserOrder>> GetAllAsync(Status status = Status.All)
+    public async Task<List<UserOrder>> GetAllAsync(Status status = Status.All, string userId = "")
     {
-        throw new NotImplementedException();
+        try
+        {
+            // Retrieve orders with an optional status filter.
+            var orderQuery = _dataContext.Orders.AsQueryable();
+            if (status != Status.All)
+            {
+                orderQuery = orderQuery.Where(o => o.Status == status.ToString().ToLower());
+            }
+            if (!string.IsNullOrEmpty(userId))
+            {
+                orderQuery = orderQuery.Where(o=>o.UserId == userId);
+            }
+            var orderEntities = await orderQuery.ToListAsync();
+
+            // Collect IDs needed for batch lookups.
+            var addressIds = orderEntities.Select(o => o.AddressId).Distinct().ToList();
+            var orderIds = orderEntities.Select(o => o.Id).Distinct().ToList();
+            var userIds = orderEntities.Where(o => !string.IsNullOrEmpty(o.UserId))
+                                       .Select(o => o.UserId)
+                                       .Distinct()
+                                       .ToList();
+
+            // Batch fetch addresses, users, and cart items.
+            var addresses = await _dataContext.Addresses
+                .Where(a => addressIds.Contains(a.Id))
+                .ToListAsync();
+
+            var users = await _dataContext.Users
+                .Where(u => userIds.Contains(u.Id.ToString()))
+                .ToListAsync();
+
+            var cartItemEntities = await _dataContext.CartItems
+                .Where(ci => orderIds.Contains(ci.OrderEntityId))
+                .ToListAsync();
+
+            // Map cart items with an optimized helper (see below).
+            var cartItemsGrouped = await MapCartItems(cartItemEntities);
+
+            var userOrders = new List<UserOrder>();
+            foreach (var orderEntity in orderEntities)
+            {
+                var userOrder = new UserOrder
+                {
+                    Id = orderEntity.Id.ToString(),
+                    Total = orderEntity.Total,
+                    Created = orderEntity.Created,
+                    Status = Enum.Parse<Status>(orderEntity.Status, ignoreCase: true),
+                    Address = MapAddress(addresses.FirstOrDefault(a => a.Id == orderEntity.AddressId)),
+                    User = users.FirstOrDefault(u => u.Id.ToString() == orderEntity.UserId) is UserEntity ue ? MapUser(ue) : null,
+                    CartItems = cartItemsGrouped.ContainsKey(orderEntity.Id)
+                                ? cartItemsGrouped[orderEntity.Id]
+                                : new List<CartItem>()
+                };
+
+                userOrders.Add(userOrder);
+            }
+
+            return userOrders;
+        }
+        catch (Exception ex)
+        {
+            await _logger.LogAsync($"Error fetching orders: {ex.Message}");
+            throw;
+        }
     }
 
-    public Task<UserOrder> GetOrderByIdAsync(string id)
+    public async Task<UserOrder> GetOrderByIdAsync(string id)
     {
-        throw new NotImplementedException();
+        if (string.IsNullOrEmpty(id))
+        {
+            throw new ArgumentException("Order ID cannot be null or empty", nameof(id));
+        }
+
+        try
+        {
+            var orderEntity = await _dataContext.Orders.FirstOrDefaultAsync(m => m.Id == id);
+            if (orderEntity == null)
+            {
+                throw new Exception($"Order with ID {id} not found");
+            }
+
+            var addressEntity = await _dataContext.Addresses.FirstOrDefaultAsync(m => m.Id == orderEntity.AddressId);
+            var cartItemEntities = await _dataContext.CartItems.Where(x => x.OrderEntityId == orderEntity.Id).ToListAsync();
+            var userEntity = !string.IsNullOrEmpty(orderEntity.UserId)
+                ? await _dataContext.Users.FirstOrDefaultAsync(m => m.Id.ToString() == orderEntity.UserId)
+                : null;
+
+            var cartItemsGrouped = await MapCartItems(cartItemEntities);
+
+            var userOrder = new UserOrder
+            {
+                Id = orderEntity.Id.ToString(),
+                Total = orderEntity.Total,
+                Created = orderEntity.Created,
+                Status = Enum.Parse<Status>(orderEntity.Status, ignoreCase: true),
+                Address = MapAddress(addressEntity),
+                User = userEntity != null ? MapUser(userEntity) : null,
+                CartItems = cartItemsGrouped.ContainsKey(orderEntity.Id)
+                            ? cartItemsGrouped[orderEntity.Id]
+                            : new List<CartItem>()
+            };
+
+            return userOrder;
+        }
+        catch (Exception ex)
+        {
+            await _logger.LogAsync($"Error fetching order: {ex.Message}");
+            throw;
+        }
     }
 
-    public Task UpdateOrder(UserOrder order)
+    private Address MapAddress(AddressEntity addressEntity)
     {
-        throw new NotImplementedException();
+        return new Address
+        {
+            Id = addressEntity.Id,
+            FirstName = addressEntity.FirstName,
+            LastName = addressEntity.LastName,
+            City = addressEntity.City,
+            ZipCode = addressEntity.ZipCode,
+            StreetAddress = addressEntity.StreetAddress,
+            PhoneNumber = addressEntity.PhoneNumber
+        };
     }
 
-    public Task<bool> UpdateOrderStatus(string orderId, Status status)
+    private AppUser MapUser(UserEntity userEntity)
     {
-        throw new NotImplementedException();
+        return new AppUser
+        {
+            Id = userEntity.Id.ToString(),
+            UserName = userEntity.UserName,
+            // Map other user properties as needed
+        };
     }
+
+    private async Task<Dictionary<string, List<CartItem>>> MapCartItems(IEnumerable<CartItemEntity> cartItemEntities)
+    {
+        var cartItemList = cartItemEntities.ToList();
+        if (!cartItemList.Any())
+            return new Dictionary<string, List<CartItem>>();
+
+        // Get distinct product IDs and cart item IDs
+        var productIds = cartItemList.Select(ci => ci.ProductId).Distinct().ToList();
+        // Get the distinct cart item IDs from the cart items we already fetched
+        var cartItemIds = cartItemList.Select(ci => ci.Id).Distinct().ToList();
+
+        var variantData = await (
+            from sv in _dataContext.SelectedVariants
+            where cartItemIds.Contains(sv.CartItemEntityId)
+            join v in _dataContext.Variants
+                 on sv.VariantEntityId equals v.Id into vGroup
+            from v in vGroup.DefaultIfEmpty() // If this is null, then the join failed
+            join vo in _dataContext.VariantOptions
+                 on sv.OptionEntityId equals vo.Id into voGroup
+            from vo in voGroup.DefaultIfEmpty()
+            select new
+            {
+                CartItemEntityId = sv.CartItemEntityId,
+                Id = sv.Id,
+                VariantName = v != null ? v.Name : "[No Name]",
+                OptionValue = vo != null ? vo.Value : string.Empty,
+                PriceAdjustment = vo != null ? vo.PriceAdjustment : 0m,
+                
+            }
+        ).ToListAsync();
+        
+
+        // Batch fetch products
+        var products = await _dataContext.Products
+            .Where(p => productIds.Contains(p.Id))
+            .ToListAsync();
+
+
+        var variantGroups = variantData
+     .GroupBy(x => x.CartItemEntityId)
+     .ToDictionary(
+          g => g.Key,
+          g => g.Select(x => new SelectedVariant
+          {
+              Id = x.Id,
+              VariantName = x.VariantName,
+              OptionValue = x.OptionValue,
+              PriceAdjustment = x.PriceAdjustment
+          }).ToList()
+     );
+
+
+        var cartItems = new List<CartItem>();
+        foreach (var ci in cartItemList)
+        {
+            var product = products.FirstOrDefault(p => p.Id == ci.ProductId);
+            var cartItem = new CartItem
+            {
+                Id = ci.Id,
+                Product = MapProduct(product),  // Assumes you have a MapProduct method
+                Quantity = ci.Quantity,
+                SubTotal = ci.SubTotal,
+                SelectedVariants = variantGroups.ContainsKey(ci.Id) ? variantGroups[ci.Id] : new List<SelectedVariant>(),
+                
+            };
+            cartItems.Add(cartItem);
+        }
+
+
+        // Group cart items by OrderEntityId to ease mapping in GetAllAsync/GetOrderByIdAsync.
+        return cartItems.GroupBy(ci => cartItemEntities.First(c => c.Id == ci.Id).OrderEntityId)
+                        .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private Product MapProduct(ProductEntity productEntity)
+    {
+        if (productEntity != null)
+        {
+        return new Product
+        {
+            Id = productEntity.Id,
+            Name = productEntity.Name,
+            Price = productEntity.Price,
+            SKU = productEntity.SKU
+            // Map other product properties as needed
+        };
+
+        }
+        return new Product
+        {
+            Id = 0,
+            Name = "Product does not exist, It was most likely deleted",
+
+        };
+    }
+    public async Task<bool> UpdateOrderStatus(string orderId, Status status)
+    {
+        try
+        {
+            var orderEntity = await _dataContext.Orders.FirstOrDefaultAsync(o => o.Id.ToString() == orderId);
+
+            if (orderEntity == null)
+            {
+                throw new Exception($"Order with ID {orderId} not found");
+            }
+
+            orderEntity.Status = status.ToString().ToLower();
+            await _dataContext.UpdateAsync(orderEntity);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await _logger.LogAsync($"Error updating order status: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<List<UserOrder>> GetUserOrders(string userId)
+    {
+        try
+        {
+            var user = await _dataContext.Users.FirstOrDefaultAsync(m => m.Id.ToString() == userId);
+            if (user == null)
+            {
+                await _logger.LogAsync($"User with ID {userId} not found");
+                return new List<UserOrder>();
+            }
+
+            var userOrders = await GetAllAsync(userId:userId);
+
+            return userOrders;
+        }
+        catch (Exception ex)
+        {
+            await _logger.LogAsync( $"Error fetching orders for user {userId} :{ex.Message}");
+            throw;
+        }
+    }
+
+
 }

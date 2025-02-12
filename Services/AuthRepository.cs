@@ -61,7 +61,7 @@ public class AuthRepository : IAuthRepository
 
         EnsureRoleExists();
 
-        var customerRole = await _dataContext.Roles.FirstOrDefaultAsync(m => m.Role == "Admin");
+        var customerRole = await _dataContext.Roles.FirstOrDefaultAsync(m => m.Role == "Customer");
         userEntity.RoleId = customerRole?.Id;
 
         try
@@ -112,8 +112,9 @@ public class AuthRepository : IAuthRepository
             var userClaims = new List<Claim>
             {
         new Claim("userId", appUser.Id.ToString()),
+        new Claim("userName", appUser.UserName),
         new Claim("email", appUser.Email),
-        new Claim("userName", appUser.UserName)
+        new Claim(ClaimTypes.Email, appUser.Id.ToString()),
         };
 
 
@@ -122,6 +123,7 @@ public class AuthRepository : IAuthRepository
             if (role != null)
             {
                 userClaims.Add(new Claim("role", role));
+                userClaims.Add(new Claim(ClaimTypes.Role, role));
             }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["ApiResponse:SecretKey"]));

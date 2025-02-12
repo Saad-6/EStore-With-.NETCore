@@ -5,6 +5,7 @@ using EStore.Interfaces;
 using EStore.Models;
 using EStore.Services;
 using LinqToDB;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EStore.Controllers;
@@ -29,6 +30,7 @@ public class CategoryController : ControllerBase
         return Ok(categories);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> AddCategory([FromForm] Category category)
     {
@@ -48,6 +50,28 @@ public class CategoryController : ControllerBase
             return Ok();
     }
 
+    [Authorize(Roles = "Admin")]
+    [HttpPut]
+    public async Task<IActionResult> UpdateCategory([FromForm] Category category)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        // Updated not implemented yet
+
+        var response = await _categoryRepository.AddCategory(category);
+
+        if (!response)
+        {
+            return BadRequest(ModelState);
+        }
+
+        return Ok();
+    }
+
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> RemoveCategory(int id)
     {

@@ -7,13 +7,11 @@ namespace EStore.Interfaces;
 
 public interface IProductRepository
 {
-    Task<Response> SaveAsync(Product product);
+    Task<Response> GiveReviewAsync(int productId, ReviewDTO reviewDTO);
     Task<Response> SaveAsync(ProductAPI product);
     Task<Response> DeleteAsync(int productId);
-    Task<Response> UpdateAsync(Product product);
     Task<Response> UpdateAsync(ProductAPI product);
     Task<List<Product>> GetAllAsync();
-
     Task<List<Product>> Search(string query);
     Task<Product> GetProductById(int id);
     Task<Product> GetProductBySku(string sku);
@@ -24,5 +22,5 @@ public interface IProductRepository
     Task<List<Product>> GetProductsByDescription(string descriptionText);
     Task<List<Product>> GetRandomProducts(int count = 3);
     Task<List<SimpleProductDTO>> GetProductDTOs();
-
+    Task<Response> GetVariantsAndOptions(List<int> variantIds, List<int> optionIds);
 }

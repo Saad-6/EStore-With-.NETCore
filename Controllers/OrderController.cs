@@ -2,6 +2,7 @@
 using EStore.Entities;
 using EStore.Interfaces;
 using EStore.Models.Order;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
@@ -34,7 +35,14 @@ public class OrderController : ControllerBase
             return StatusCode(500, "An error occurred while processing your order.");
         }
     }
+    [HttpGet("user/{id}")]
+    public async Task<IActionResult> GetUserOrders([FromRoute]string id)
+    {
+        var orders = await _orderService.GetUserOrders(id);
+        return Ok(orders);
+    }
 
+    [Authorize(Roles = "Admin")]
     [HttpPatch("{id}")]
     public async Task<IActionResult> UpdateOrderStatus(string id, [FromBody] UpdateOrderStatusDto status)
     {
@@ -50,6 +58,7 @@ public class OrderController : ControllerBase
         return Ok();
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> GetAllOrders([FromQuery] Status? status)
     {

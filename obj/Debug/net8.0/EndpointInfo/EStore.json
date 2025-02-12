@@ -126,6 +126,55 @@
             "description": "Success"
           }
         }
+      },
+      "put": {
+        "tags": [
+          "Category"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "type": "string"
+                  },
+                  "Description": {
+                    "type": "string"
+                  },
+                  "thumbnail": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "Id": {
+                    "type": "integer",
+                    "format": "int32"
+                  }
+                }
+              },
+              "encoding": {
+                "Name": {
+                  "style": "form"
+                },
+                "Description": {
+                  "style": "form"
+                },
+                "thumbnail": {
+                  "style": "form"
+                },
+                "Id": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
       }
     },
     "/api/Category/{id}": {
@@ -408,6 +457,28 @@
         }
       }
     },
+    "/api/Order/user/{id}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
     "/api/Order/{id}": {
       "patch": {
         "tags": [
@@ -664,6 +735,51 @@
         }
       }
     },
+    "/api/Product/variants-and-options": {
+      "post": {
+        "tags": [
+          "Product"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "variantIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  },
+                  "optionIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  }
+                }
+              },
+              "encoding": {
+                "variantIds": {
+                  "style": "form"
+                },
+                "optionIds": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
     "/api/Product/{slug}": {
       "get": {
         "tags": [
@@ -724,6 +840,48 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/Product/Review/{productId}": {
+      "post": {
+        "tags": [
+          "Product"
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDTO"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDTO"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDTO"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success"
@@ -852,6 +1010,10 @@
       "CartItemDto": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
           "productId": {
             "type": "integer",
             "format": "int32"
@@ -868,10 +1030,16 @@
             "type": "integer",
             "format": "int32"
           },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
           "selectedVariants": {
             "type": "object",
             "additionalProperties": {
-              "$ref": "#/components/schemas/VariantOptionDto"
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
             },
             "nullable": true
           }
@@ -1006,9 +1174,31 @@
         },
         "additionalProperties": false
       },
+      "ReviewDTO": {
+        "type": "object",
+        "properties": {
+          "stars": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userId": {
+            "type": "string",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "SignUpDTO": {
         "type": "object",
         "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
           "email": {
             "type": "string",
             "nullable": true
@@ -1086,7 +1276,13 @@
           2,
           3,
           4,
-          5
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
         ],
         "type": "integer",
         "format": "int32"
@@ -1169,20 +1365,6 @@
           "sku": {
             "type": "string",
             "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "VariantOptionDto": {
-        "type": "object",
-        "properties": {
-          "value": {
-            "type": "string",
-            "nullable": true
-          },
-          "priceAdjustment": {
-            "type": "number",
-            "format": "double"
           }
         },
         "additionalProperties": false

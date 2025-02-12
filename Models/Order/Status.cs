@@ -7,5 +7,12 @@ public enum Status
     Confirmed,
     Shipped,
     Delivered,
-    Cancelled
+    Cancelled,
+    all,
+    pending,
+    confirmed,
+    shipped,
+    delivered,
+    cancelled,
+
 }

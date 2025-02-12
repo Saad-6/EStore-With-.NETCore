@@ -29,7 +29,7 @@ public class UserOrder
         Created = DateTime.Now;
         Status = Status.Pending;
     }
-    private string GenerateRandomId(int length = 10)
+    public static string GenerateRandomId(int length = 10)
     {
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"; 
         var random = new Random();

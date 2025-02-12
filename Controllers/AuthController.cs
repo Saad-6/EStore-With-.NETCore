@@ -19,7 +19,7 @@ public class AuthController : ControllerBase
     [HttpPost("Register")]
     public async Task<IActionResult> Register(SignUpDTO dto)
     {
-        var result = await _authRepository.SignUp(dto.Email, dto.Email, dto.Password, dto.ConfirmPassword);
+        var result = await _authRepository.SignUp(dto.Name, dto.Email, dto.Password, dto.ConfirmPassword);
 
         if (!result.Success)
         {

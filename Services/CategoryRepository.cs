@@ -55,6 +55,7 @@ public class CategoryRepository : ICategoryRepository
         try
         {
             var category = await _dataContext.Categories.FirstOrDefaultAsync(m=>m.Id == id);
+            _fileHandler.DeleteFile(category.ThumbNailUrl);
             if (category == null) return false;
 
             await _dataContext.DeleteAsync(category);

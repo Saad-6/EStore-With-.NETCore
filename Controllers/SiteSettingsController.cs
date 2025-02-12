@@ -1,6 +1,7 @@
 ﻿using EStore.Entities;
 using EStore.Interfaces;
 using EStore.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -36,6 +37,8 @@ public class SiteSettingsController : ControllerBase
  
         return Ok(settings);
     }
+
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> CreateOrUpdateSiteUrl(SiteSettingsDTO siteSettingsDTO)
     {

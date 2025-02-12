@@ -11,7 +11,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
+using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace EStore.Startup;
@@ -37,14 +40,6 @@ public static class ServiceExtensions
         // Register AltDataContext with the configured options
         services.AddScoped<AltDataContext>(_ => new AltDataContext(options));
 
-        // Helpers (using ef core)
-    //    services.AddScoped<ProductHelper>();
-    //    services.AddScoped<CategoryHelper>();
-    //    services.AddScoped<ReviewHelper>();
-    //    services.AddScoped<FAQHelper>();
-    //    services.AddScoped<OrderHelper>();
-    ////   services.AddScoped<AuthHelper>();
-    //    services.AddScoped<LayoutHelper>();
 
         // Services or Helpers using linq2db
 
@@ -60,7 +55,6 @@ public static class ServiceExtensions
         services.AddScoped<IAppSettingsService, AppSettingsService>();
         services.AddScoped(typeof(IRepository<>), typeof(EntityRepository<>));
 
-
         // CORS
 
         services.AddCors();
@@ -71,6 +65,28 @@ public static class ServiceExtensions
     }
     private static void ConfigureJwtAuthentication(IServiceCollection services, IConfiguration configuration)
     {
+        //var claims = new List<Claim>()
+        //{
+        //    new Claim(ClaimTypes.Name,"userId"),
+        //    new Claim(ClaimTypes.Email,"userId"),
+        //    new Claim(ClaimTypes.Role,"userId"),
+        //    new Claim(ClaimTypes.Name,"userId"),
+
+        //};
+
+        //var secretKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("SecretKey"));
+        //var credentials = new SigningCredentials(secretKey, SecurityAlgorithms.Sha256);
+
+        //var token = new JwtSecurityToken(
+        //      issuer: "domain",
+        //      audience: "domain",
+        //      claims: claims,
+        //      expires: DateTime.UtcNow.AddHours(10),
+        //      signingCredentials: credentials
+        //    );
+
+        //string jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
         var key = configuration.GetValue<string>("ApiResponse:SecretKey");
         services.AddAuthentication(u =>
         {

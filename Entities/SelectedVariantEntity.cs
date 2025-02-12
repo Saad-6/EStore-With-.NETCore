@@ -10,14 +10,13 @@ public class SelectedVariantEntity : SelectedVariant
     [Column(Name = "Id")]
     public new int Id { get; set; }
 
+    [Column(Name = "VariantEntityId"), NotNull]
+    public new int VariantEntityId { get; set; }
+
+    [Column(Name = "OptionEntityId"), NotNull]
+    public new int OptionEntityId { get; set; }
+
     [Column(Name = "CartItemEntityId"), NotNull]
-    public int CartItemEntityId { get; set; }
-    [Column(Name = "VariantName"), NotNull]
-    public override string VariantName { get; set; }
+    public new int CartItemEntityId { get; set; }
 
-    [Column(Name = "OptionValue"), NotNull]
-    public override string OptionValue { get; set; }
-
-    [Column(Name = "PriceAdjustment"), NotNull]
-    public override decimal PriceAdjustment { get; set; }
 }

@@ -1,4 +1,5 @@
 ﻿using EStore.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,12 +14,16 @@ public class LogController : ControllerBase
     {
         _logger = logger;
     }
+
+    [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> Get()
     {
         var logs =  await _logger.GetAllAsync();
         return Ok(logs);
     }
+
+    [Authorize(Roles = "Admin")]
     [HttpDelete]
     public async Task<IActionResult> ClearLogs()
     {

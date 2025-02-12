@@ -3,6 +3,7 @@ using EStore.Interfaces;
 using EStore.Models;
 using EStore.Models.Products;
 using EStore.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EStore.Controllers;
@@ -32,6 +33,17 @@ public class ProductController : ControllerBase
         return Ok(products);
     }
 
+    [HttpPost("variants-and-options")]
+    public async Task<IActionResult> GetVariantsAndOptions([FromForm] List<int> variantIds, [FromForm] List<int> optionIds)
+    {
+        var response = await _productRepository.GetVariantsAndOptions(variantIds, optionIds);
+        if (response.Success)
+        {
+            return Ok(response.Data);
+        }
+        return BadRequest(response.Error);
+    }
+
     [HttpGet("{slug}")]
     public async Task<IActionResult> GetProductBySlug(string slug)
     {
@@ -53,6 +65,7 @@ public class ProductController : ControllerBase
         return Ok(products);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> AddOrUpdateProduct([FromForm] ProductAPI product, [FromQuery] string operation)
     {
@@ -77,7 +90,20 @@ public class ProductController : ControllerBase
         }
         return BadRequest(response.Error);
     }
+    [HttpPost("Review/{productId}")]
+    public async Task<IActionResult> AddReview([FromRoute] int productId, [FromBody] ReviewDTO reviewDto)
+    {
+        var response = await _productRepository.GiveReviewAsync(productId, reviewDto);
 
+        if (response.Success)
+        {
+            return Ok();
+        }
+
+        return BadRequest(response);
+    }
+
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{productId}")]
     public async Task<IActionResult> RemoveProduct(int productId)
     {

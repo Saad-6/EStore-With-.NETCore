@@ -1,4 +1,6 @@
-﻿using EStore.Models;
+﻿
+using EStore.Models;
+using System.IO;
 
 namespace EStore.Services;
 
@@ -19,11 +21,32 @@ public class FileHandler
         }
         return existingFilePath;
     }
-    public  async Task<Response> DeleteFileAsync(string directory, string subDirectory, string fileName)
+    public Response DeleteFile(string filePath)
     {
+        Response response = new();
+        try
+        {
 
+            string absolutePath = Path.Combine(Directory.GetCurrentDirectory(), "StaticFiles", filePath);
 
-        return new Response { };
+            if (File.Exists(absolutePath))
+            {
+                File.Delete(absolutePath);
+                response.Success = true;
+            }
+            else
+            {
+                response.Success = false;
+                response.Error = "File not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            response.Success = false;
+            response.Error = ex.Message;
+        }
+
+        return response;
     }
     public async Task<Response> SaveFileAsync(IFormFile file, string directory, string subDirectory)
     {

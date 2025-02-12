@@ -19,5 +19,9 @@ public class CartItemEntity : BaseEntity
     public decimal SubTotal { get; set; } = decimal.Zero;
 
     [Column(Name = "OrderEntityId"), Nullable] 
-    public int OrderEntityId { get; set; }
+    public string OrderEntityId { get; set; }
+
+    [NotColumn]
+    public List<SelectedVariantEntity> SelectedVariants { get; set; } = new();
+
 }

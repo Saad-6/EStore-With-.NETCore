@@ -2,5 +2,5 @@
 
 public interface IAppSettingsService
 {
-    string BaseUrl { get; }
+    public string BaseUrl { get; }
 }

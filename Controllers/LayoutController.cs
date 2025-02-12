@@ -1,6 +1,7 @@
 ﻿using EStore.Interfaces;
 using EStore.Models;
 using EStore.Models.Layout;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EStore.Controllers;
@@ -34,7 +35,7 @@ public class LayoutController : ControllerBase
         return Ok(activeLayout);
     }
 
-
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<ActionResult<HomePageLayout>> CreateHomePageLayout (HomePageLayout layout)
     {
@@ -42,6 +43,7 @@ public class LayoutController : ControllerBase
         return BadRequest();
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost("/api/Layout/update")]
     public async Task<IActionResult> UpdateHomePageLayout (HomePageLayout layout)
     {
@@ -49,6 +51,7 @@ public class LayoutController : ControllerBase
         return BadRequest();
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteHomePageLayout(int id)
     {
@@ -56,6 +59,7 @@ public class LayoutController : ControllerBase
         return BadRequest();
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPut("{id}/activate")]
     public async Task<IActionResult> ActivateHomePageLayout(int id)
     {
@@ -65,11 +69,6 @@ public class LayoutController : ControllerBase
             return Ok();
         }
         return BadRequest(result.Error);
-    }
-
-    private bool HomePageLayoutExists(int id)
-    {
-        return false;
     }
 
 }

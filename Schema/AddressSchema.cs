@@ -4,13 +4,13 @@ using FluentMigrator;
 namespace EStore.Schema;
 
 
-[Migration(2023111403)]
+[Migration(85738562)]
 public class AddressSchema : Migration
 {
     public override void Up()
     {
         Create.Table(nameof(AddressEntity))
-             .WithColumn(nameof(AddressEntity.Id)).AsInt32().NotNullable()
+             .WithColumn(nameof(AddressEntity.Id)).AsInt32().PrimaryKey().Identity()
              .WithColumn(nameof(AddressEntity.PhoneNumber)).AsString().NotNullable()
              .WithColumn(nameof(AddressEntity.FirstName)).AsString().Nullable()
              .WithColumn(nameof(AddressEntity.LastName)).AsString().Nullable()

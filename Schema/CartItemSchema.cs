@@ -3,7 +3,7 @@ using FluentMigrator;
 
 namespace EStore.Schema;
 
-[Migration(2023111402)]
+[Migration(20283462902)]
 public class CartItemSchema : Migration
 {
     public override void Up()
@@ -11,7 +11,7 @@ public class CartItemSchema : Migration
         Create.Table(nameof(CartItemEntity))
             .WithColumn(nameof(CartItemEntity.Id)).AsInt32().PrimaryKey().Identity()
             .WithColumn(nameof(CartItemEntity.ProductId)).AsInt32().NotNullable()
-            .WithColumn(nameof(CartItemEntity.OrderEntityId)).AsInt32().Nullable()
+            .WithColumn(nameof(CartItemEntity.OrderEntityId)).AsString().Nullable()
             .WithColumn(nameof(CartItemEntity.Quantity)).AsInt32().NotNullable()
             .WithColumn(nameof(CartItemEntity.SubTotal)).AsDecimal().NotNullable();
 

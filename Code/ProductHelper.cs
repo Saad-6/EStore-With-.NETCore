@@ -300,4 +300,14 @@ public class ProductHelper : IProductRepository
     {
         throw new NotImplementedException();
     }
+
+    public Task<Response> GiveReviewAsync(int productId, ReviewDTO reviewDTO)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<Response> GetVariantsAndOptions(List<int> variantIds, List<int> optionIds)
+    {
+        throw new NotImplementedException();
+    }
 }
