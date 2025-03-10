@@ -48,6 +48,7 @@ public static class ServiceExtensions
         services.AddTransient<MigrationExtension>(); 
         services.AddScoped<ILogRepository,LogRepository>();
         services.AddScoped<IAuthRepository,AuthRepository>();
+        services.AddScoped<IContactService, ContactService>();
         services.AddScoped<IOrderRepository,OrderRepository>();
         services.AddScoped<ILayoutRepository,LayoutRepository>();
         services.AddScoped<IProductRepository,ProductRepository>();

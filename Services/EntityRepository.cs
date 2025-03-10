@@ -48,6 +48,11 @@ public class EntityRepository<T> : IRepository<T> where T : BaseEntity
     {
         return await _dbContext.GetTable<T>().ToListAsync();
     }
+    public async Task<List<T>> GetAllAsync(int pageNumber = 1, int pageSize = 10)
+    {
+        int index = (pageNumber - 1) * pageSize;
+        return await _dbContext.GetTable<T>().Skip(index).Take(pageSize).ToListAsync();
+    }
 
     public async Task<T> GetById(int id)
     {

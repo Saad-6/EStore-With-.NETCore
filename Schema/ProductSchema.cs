@@ -13,7 +13,7 @@ public class ProductSchema : Migration
         Create.Table(nameof(ProductEntity))
             .WithColumn(nameof(ProductEntity.Id)).AsInt32().PrimaryKey().Identity()
             .WithColumn(nameof(ProductEntity.Name)).AsString().NotNullable()
-            .WithColumn(nameof(ProductEntity.Description)).AsString(3500).Nullable()
+            .WithColumn(nameof(ProductEntity.Description)).AsString(int.MaxValue).Nullable()
             .WithColumn(nameof(ProductEntity.Brand)).AsString().Nullable()
             .WithColumn(nameof(ProductEntity.Slug)).AsString().Nullable()
             .WithColumn(nameof(ProductEntity.Price)).AsDecimal().NotNullable()

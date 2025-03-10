@@ -64,9 +64,17 @@ public class OrderRepository : IOrderRepository
             {
                 // Check if the product exists
                 var product = await _dataContext.Products.FirstOrDefaultAsync(m => m.Id == ci.ProductId);
-                if (product == null)
+                if (product == null )
                 {
-                    throw new Exception($"Product with ID {ci.ProductId} not found");
+                    response.Error = "Product doesn't exist or was removed";
+                    response.Success = false;
+                    return response;
+                }
+                if(product.Stock < 1)
+                {
+                    response.Error = "Product is out of stock";
+                    response.Success = false;
+                    return response;
                 }
 
                 // Save cart item with OrderId
@@ -77,6 +85,15 @@ public class OrderRepository : IOrderRepository
                     Quantity = ci.Quantity,
                     SubTotal = ci.Price * ci.Quantity,
                 });
+                var validStock = product.Stock - ci.Quantity > -1;
+                if (!validStock)
+                {
+                    response.Error = "Not enough stock available, please reduce quantity and try again";
+                    response.Success = false;
+                    return response;
+                }
+                product.Stock = product.Stock - ci.Quantity;
+                _dataContext.Update(product);
 
                 // Process selected variants if any (ci.SelectedVariants is assumed to be a Dictionary<int, int>
                 if (ci.SelectedVariants != null)
@@ -98,7 +115,7 @@ public class OrderRepository : IOrderRepository
             {
                 await _dataContext.BulkCopyAsync(selectedVariants);
             }
-
+            
             await transaction.CommitAsync();
 
             response.Success = true;
@@ -115,7 +132,7 @@ public class OrderRepository : IOrderRepository
         return response;
     }
 
-    public async Task<List<UserOrder>> GetAllAsync(Status status = Status.All, string userId = "")
+    public async Task<(List<UserOrder>, int)> GetAllAsync(Status status = Status.All, int page = 1, int size = 5, string userId = "")
     {
         try
         {
@@ -127,9 +144,14 @@ public class OrderRepository : IOrderRepository
             }
             if (!string.IsNullOrEmpty(userId))
             {
-                orderQuery = orderQuery.Where(o=>o.UserId == userId);
+                orderQuery = orderQuery.Where(o => o.UserId == userId);
             }
-            var orderEntities = await orderQuery.ToListAsync();
+            orderQuery = orderQuery.OrderByDescending(o => o.Created);
+            var totalCount = await orderQuery.CountAsync();
+            var orderEntities = await orderQuery
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync();
 
             // Collect IDs needed for batch lookups.
             var addressIds = orderEntities.Select(o => o.AddressId).Distinct().ToList();
@@ -174,7 +196,7 @@ public class OrderRepository : IOrderRepository
                 userOrders.Add(userOrder);
             }
 
-            return userOrders;
+            return (userOrders, totalCount);
         }
         catch (Exception ex)
         {
@@ -183,51 +205,78 @@ public class OrderRepository : IOrderRepository
         }
     }
 
-    public async Task<UserOrder> GetOrderByIdAsync(string id)
+
+    public async Task<List<UserOrder>> GetOrderByParamsAsync(string param)
     {
-        if (string.IsNullOrEmpty(id))
+        if (string.IsNullOrEmpty(param))
         {
-            throw new ArgumentException("Order ID cannot be null or empty", nameof(id));
+            return new List<UserOrder>();
         }
 
         try
         {
-            var orderEntity = await _dataContext.Orders.FirstOrDefaultAsync(m => m.Id == id);
+            var orderEntity = new List<OrderEntity>();
+            if (IsPhone(param))
+            {
+                var addressIds = await _dataContext.Addresses.Where(m=>m.PhoneNumber == param).Select(m=>m.Id).ToListAsync();
+                orderEntity = await _dataContext.Orders.Where(m => addressIds.Contains(m.AddressId)).ToListAsync();
+            }
+            else
+            {
+                orderEntity = await _dataContext.Orders.Where(m => m.Id == param).ToListAsync();
+            }
+            
             if (orderEntity == null)
             {
-                throw new Exception($"Order with ID {id} not found");
+                throw new Exception($"Order with ID/Phone {param} not found");
             }
 
-            var addressEntity = await _dataContext.Addresses.FirstOrDefaultAsync(m => m.Id == orderEntity.AddressId);
-            var cartItemEntities = await _dataContext.CartItems.Where(x => x.OrderEntityId == orderEntity.Id).ToListAsync();
-            var userEntity = !string.IsNullOrEmpty(orderEntity.UserId)
-                ? await _dataContext.Users.FirstOrDefaultAsync(m => m.Id.ToString() == orderEntity.UserId)
+            var userOrders = new List<UserOrder>();
+
+            foreach (var order in orderEntity)
+            {
+            var addressEntity = await _dataContext.Addresses.FirstOrDefaultAsync(m => m.Id == order.AddressId);
+            var cartItemEntities = await _dataContext.CartItems.Where(x => x.OrderEntityId == order.Id).ToListAsync();
+            var userEntity = !string.IsNullOrEmpty(order.UserId)
+                ? await _dataContext.Users.FirstOrDefaultAsync(m => m.Id.ToString() == order.UserId)
                 : null;
 
             var cartItemsGrouped = await MapCartItems(cartItemEntities);
 
             var userOrder = new UserOrder
             {
-                Id = orderEntity.Id.ToString(),
-                Total = orderEntity.Total,
-                Created = orderEntity.Created,
-                Status = Enum.Parse<Status>(orderEntity.Status, ignoreCase: true),
+                Id = order.Id.ToString(),
+                Total = order.Total,
+                Created = order.Created,
+                Status = Enum.Parse<Status>(order.Status, ignoreCase: true),
                 Address = MapAddress(addressEntity),
                 User = userEntity != null ? MapUser(userEntity) : null,
-                CartItems = cartItemsGrouped.ContainsKey(orderEntity.Id)
-                            ? cartItemsGrouped[orderEntity.Id]
+                CartItems = cartItemsGrouped.ContainsKey(order.Id)
+                            ? cartItemsGrouped[order.Id]
                             : new List<CartItem>()
             };
 
-            return userOrder;
+                userOrders.Add(userOrder);
+            }
+
+
+            return userOrders;
         }
         catch (Exception ex)
         {
             await _logger.LogAsync($"Error fetching order: {ex.Message}");
-            throw;
+            return new List<UserOrder>();
         }
+     
     }
-
+     bool IsPhone(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return false; // Or true, depending on your requirement for empty strings
+        }
+        return input.All(char.IsDigit);
+    }
     private Address MapAddress(AddressEntity addressEntity)
     {
         return new Address
@@ -381,7 +430,7 @@ public class OrderRepository : IOrderRepository
                 return new List<UserOrder>();
             }
 
-            var userOrders = await GetAllAsync(userId:userId);
+            var (userOrders,totalCount) = await GetAllAsync(userId:userId);
 
             return userOrders;
         }

@@ -26,7 +26,12 @@ public class OrderController : ControllerBase
 
         try
         {
-            var order =  (OrderEntity)(await _orderService.CreateOrderAsync(orderDto)).Data;
+            var response =  await _orderService.CreateOrderAsync(orderDto);
+            if(!response.Success)
+            {
+                return BadRequest(response.Error);
+            }
+            var order = (OrderEntity)response.Data;
             return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
         }
         catch (Exception ex)
@@ -60,20 +65,27 @@ public class OrderController : ControllerBase
 
     [Authorize(Roles = "Admin")]
     [HttpGet]
-    public async Task<IActionResult> GetAllOrders([FromQuery] Status? status)
+    public async Task<IActionResult> GetAllOrders([FromQuery] Status? status, [FromQuery] int page = 1, [FromQuery] int size = 5)
     {
-        var orders = await _orderService.GetAllAsync(status ?? Status.All);
-        return Ok(orders);
+        var (orders, totalCount) = await _orderService.GetAllAsync(status ?? Status.All, page, size);
+        var response = new
+        {
+            Orders = orders,
+            TotalCount = totalCount,
+            CurrentPage = page,
+            PageSize = size
+        };
+        return Ok(response);
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetOrder(string id)
     {
-        var order = await _orderService.GetOrderByIdAsync(id);
-        if (order == null)
+        var orders = await _orderService.GetOrderByParamsAsync(id);
+        if (orders == null)
         {
             return NotFound();
         }
-        return Ok(order);
+        return Ok(orders);
     }
 }

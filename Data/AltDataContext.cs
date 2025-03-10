@@ -20,6 +20,7 @@ public class AltDataContext : DataConnection
     public ITable<DiscountEntity> Discounts => this.GetTable<DiscountEntity>();
     public ITable<CartItemEntity> CartItems => this.GetTable<CartItemEntity>();
     public ITable<CategoryEntity> Categories => this.GetTable<CategoryEntity>();
+    public ITable<UserQueryEntity> UserQueries => this.GetTable<UserQueryEntity>();
     public ITable<NewArrivalsEntity> NewArrivals => this.GetTable<NewArrivalsEntity>();
     public ITable<ProductImageEntity> ProductImages => this.GetTable<ProductImageEntity>();
     public ITable<VariantOptionEntity> VariantOptions => this.GetTable<VariantOptionEntity>();

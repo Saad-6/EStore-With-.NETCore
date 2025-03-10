@@ -16,6 +16,25 @@ public class AuthController : ControllerBase
       _authRepository = authRepository;
     }
 
+    [HttpPost("RequestOTP")]
+    public async Task<IActionResult> RequestOTP([FromBody] RequestOTPDTO requestl)
+    {
+        return Ok();
+    }
+
+    [HttpPost("VerifyOTP")]
+    public async Task<IActionResult> VerifyOTP([FromBody] VerifyOTPDTO request)
+    {
+        return Ok();
+    }
+    [HttpPost("ResetPassword")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordDTO otp)
+    {
+        return Ok();
+    }
+
+
+
     [HttpPost("Register")]
     public async Task<IActionResult> Register(SignUpDTO dto)
     {

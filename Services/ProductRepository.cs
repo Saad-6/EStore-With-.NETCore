@@ -168,7 +168,9 @@ public class ProductRepository : IProductRepository
                         ImageUrl = image != null ? _appSettingsService.BaseUrl+"/"+ image.Url : null, // Handle null cases
                         Name = product.Name,
                         Slug = product.Slug,
-                        Price = product.Price
+                        Price = product.Price,
+                        Stock = product.Stock,
+                        CategoryName = _dbContext.Categories.FirstOrDefault(m=>m.Id == product.CategoryId).Name ?? "No Category Found"
                     };
 
         return await query.ToListAsync();

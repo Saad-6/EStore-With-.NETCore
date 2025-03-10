@@ -6,8 +6,8 @@ namespace EStore.Interfaces;
 
 public interface IOrderRepository
 {
-    Task<List<UserOrder>> GetAllAsync(Status status = Status.All, string userId = "");
-    Task<UserOrder> GetOrderByIdAsync(string id);
+    Task<(List<UserOrder>, int)> GetAllAsync(Status status = Status.All, int page = 1, int size = 5, string userId = "");
+    Task<List<UserOrder>> GetOrderByParamsAsync(string param);
     Task<Response> CreateOrderAsync(OrderCreateDto orderDto);
 
     Task<List<UserOrder>> GetUserOrders(string userId);
